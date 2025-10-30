@@ -1,9 +1,13 @@
 var createError = require('http-errors');
+var http = require('http');
 var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var limiter = require('./config/rateLimiter');
+var { initSocket } =  require('./config/socket');
+var cors = require('cors');
+
 
 
 var indexRouter = require('./routes/index');
@@ -20,6 +24,24 @@ const connectToDb = require('./config/dbConnection');
 
 
 var app = express();
+var server = http.createServer(app);
+
+initSocket(server);
+
+app.use(
+  cors({
+    origin: [
+      process.env.UserSide_URL,
+      process.env.AmbulanceSide_URL,
+      process.env.HospitalSide_URL,
+      process.env.AdminSide_URL,
+      "http://127.0.0.1:5500",
+      "https://hosta-hospitals.vercel.app",
+      "http://localhost:5173",
+    ],
+    credentials: true,
+  })
+);
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
