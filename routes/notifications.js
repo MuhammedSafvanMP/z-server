@@ -1,5 +1,4 @@
 const express = require('express');
-const router = express.Router();
 const { 
   getUserUnread, 
   getHospitalUnread, 
@@ -9,17 +8,20 @@ const {
   updateUser, 
   updateUserAll, 
   updateHospitalAll 
-} = require('../controllers/hospetal');
+} = require('../controllers/notification');
 
 const { trycatch } = require("../utils/tryCatch");
 
-router.get('/notifications/user/no-read/:id', trycatch(getUserUnread));
-router.get('/notifications/hospital/no-read/:id', trycatch(getHospitalUnread));
-router.get('/notifications/user/read/:id', trycatch(getUserRead));
-router.get('/notifications/hospital/read/:id', trycatch(getHospitalRead));
-router.patch('/notifications/user/:id', trycatch(updateUser));
-router.patch('/notifications/user/read-all/:id', trycatch(updateUserAll));
-router.patch('/notifications/hospital/read-all/:id', trycatch(updateHospitalAll));
-router.patch('/notifications/hospital/:id', trycatch(updateHospital));
+const notificationRoutes = express.Router();
 
-module.exports = router;
+
+notificationRoutes.get('/notifications/user/no-read/:id', trycatch(getUserUnread));
+notificationRoutes.get('/notifications/hospital/no-read/:id', trycatch(getHospitalUnread));
+notificationRoutes.get('/notifications/user/read/:id', trycatch(getUserRead));
+notificationRoutes.get('/notifications/hospital/read/:id', trycatch(getHospitalRead));
+notificationRoutes.patch('/notifications/user/:id', trycatch(updateUser));
+notificationRoutes.patch('/notifications/user/read-all/:id', trycatch(updateUserAll));
+notificationRoutes.patch('/notifications/hospital/read-all/:id', trycatch(updateHospitalAll));
+notificationRoutes.patch('/notifications/hospital/:id', trycatch(updateHospital));
+
+module.exports = notificationRoutes;

@@ -1,33 +1,39 @@
-var createError = require('http-errors');
-var http = require('http');
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
-var limiter = require('./config/rateLimiter');
-var { initSocket } =  require('./config/socket');
-var cors = require('cors');
+// app.js
+const express = require("express");
+const http = require("http");
+const path = require("path");
+const cookieParser = require("cookie-parser");
+const logger = require("morgan");
+const cors = require("cors");
+const dotenv = require("dotenv");
 
+dotenv.config({ path: "./Config/.env" });
 
+const { initSocket } = require("./sockets/socket");
+const connectToDb = require("./config/dbConnection");
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
-var hospetalRouter =  require('./routes/hospitals');
-var ambulanceRouter =  require('./routes/ambulance');
-var bloodRouter =  require('./routes/blood');
-var carouselRouter =  require('./routes/carousel');
-var commenRouter =  require('./routes/commen');
-var labRouter =  require('./routes/labs');
-var notificationRouter =  require('./routes/notifications');
-const connectToDb = require('./config/dbConnection');
+// Routers
+const indexRouter = require("./routes/index");
+const usersRouter = require("./routes/users");
+const hospetalRouter = require("./routes/hospitals");
+const ambulanceRouter = require("./routes/ambulance");
+const bloodRouter = require("./routes/blood");
+const carouselRouter = require("./routes/carousel");
+const commenRouter = require("./routes/commen");
+const labRouter = require("./routes/labs");
+const notificationRouter = require("./routes/notifications");
 
+// Initialize Express
+const app = express();
+const server = http.createServer(app);
 
-
-var app = express();
-var server = http.createServer(app);
-
+// Initialize Socket.io
 initSocket(server);
 
+// Connect to MongoDB
+connectToDb();
+
+// Middleware
 app.use(
   cors({
     origin: [
@@ -43,23 +49,17 @@ app.use(
   })
 );
 
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'jade');
+app.set("views", path.join(__dirname, "views"));
+app.set("view engine", "jade");
 
-app.use(logger('dev'));
+app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, "public")));
 
-
-app.use(limiter)
-
-
-app.use('/', indexRouter);
-
-
+// Routes
+app.use("/", indexRouter);
 app.use("/api", usersRouter);
 app.use("/api", commenRouter);
 app.use("/api", hospetalRouter);
@@ -69,13 +69,8 @@ app.use("/api", labRouter);
 app.use("/api", carouselRouter);
 app.use("/api", bloodRouter);
 
-
-
-connectToDb();
-
-
-// catch 404 and forward to error handler
-app.use((req, res, next) => {
+// 404 handler
+app.use((req, res) => {
   res.status(404).json({
     status: 404,
     message: "The requested resource was not found",
@@ -83,18 +78,19 @@ app.use((req, res, next) => {
   });
 });
 
-// error handler
+// Error handler
 app.use((err, req, res, next) => {
-  // Set locals, only providing error in development
-  const error = req.app.get("env") === "development" ? err : {};
-
-  // Send error response
+  console.error("Error:", err);
   res.status(err.status || 500).json({
     status: err.status || 500,
     message: err.message || "Internal Server Error",
-    error: req.app.get("env") === "development" ? error : {},
   });
 });
 
+// Start server
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
 
 module.exports = app;

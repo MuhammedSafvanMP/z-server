@@ -69,12 +69,14 @@ const Refresh = async (req, res) => {
     const twoDayInMs = 2 * 24 * 60 * 60 * 1000;
     const expirationDate = new Date(Date.now() + twoDayInMs);
 
+
     res.cookie("refreshToken", newRefreshToken, {
-      httpOnly: true,
-      expires: expirationDate,
-      secure: true,
-      sameSite: "none",
-    });
+  httpOnly: true,
+  expires: expirationDate,
+    secure: process.env.NODE_ENV === "production", 
+  sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+});
+
 
     return res.json({
       message: "Access token refreshed successfully",
@@ -92,9 +94,11 @@ const Logout = async (req, res) => {
     res.cookie("refreshToken", "", {
       httpOnly: true,
       expires: expirationDate,
-      secure: true,
-      sameSite: "none",
+        secure: process.env.NODE_ENV === "production", 
+  sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
     });
+
+    
   }
 
   return res.status(200).send("Logged out successfully");

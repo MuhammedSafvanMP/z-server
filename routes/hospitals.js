@@ -17,7 +17,9 @@ const {
   verifyOtp,
   createBooking,
   updateBooking,
-  getBookingsByUserId
+  getBookingsByUserId,
+    getSingleHospital
+
 } = require("../controllers/hospetal");
 const { uploadImage } = require("../middlewares/multer");
 const Authenticator = require("../middlewares/authentication");
@@ -28,6 +30,8 @@ hospitalRoutes.post("/hospital/registration", trycatch(HospitalRegistration));
 hospitalRoutes.post("/hospital/login", trycatch(login));
 hospitalRoutes.post("/hospital/otp", trycatch(verifyOtp));
 hospitalRoutes.post("/hospital/login/mail", trycatch(HospitalLogin));
+hospitalRoutes.get("/hospital/:id", trycatch(getSingleHospital));
+
 
 hospitalRoutes.post(
   "/hospital/password",

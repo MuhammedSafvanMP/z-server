@@ -96,8 +96,8 @@ const userLogin = async (req, res) => {
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     expires: expirationDate,
-    secure: true,
-    sameSite: "none",
+      secure: process.env.NODE_ENV === "production", 
+  sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
   });
 
   return res.status(200).json({
