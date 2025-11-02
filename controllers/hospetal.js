@@ -700,19 +700,11 @@ const updateBooking = async (req, res) => {
         message: `Your booking with ${booking.doctor_name} is now ${booking.status}.`,
       });
       
-      // Prepare push notification message
-      const messages = [
-        {
-          to: pushToken,
-          sound: "default",
-          title: "Booking Update",
-          body: `Your booking is ${booking.status}`,
-          data: { bookingId, status },
-        },
-      ];
-      
-      // Send notification fast and reliably
-      await expo.sendPushNotificationsAsync(messages);
+       const io = getIO();
+    io.emit("pushNotificationPhone", {
+      userId: booking.userId,
+  message: `Your booking with ${booking.doctor_name} is ${booking.status}`,
+    });
     }
 
     return res.status(200).json({
