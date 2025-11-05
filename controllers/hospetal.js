@@ -7,7 +7,7 @@ const notficationModel = require("../models/notification");
 const mongoose = require("mongoose");
 const { v2: cloudinary } = require("cloudinary");
 
-const { getIO } = require("../config/socket");
+const { getIO } = require("../sockets/socket");
 
 const twilio = require("twilio");
 require("dotenv").config();
@@ -117,6 +117,7 @@ const HospitalRegistration = async (req, res) => {
 //Hospital login
 const HospitalLogin = async (req, res) => {
   const { email, password } = req.body;
+  
 
   const hospital = await Hospital.findOne({ email: email });
   if (!hospital) {
@@ -148,8 +149,9 @@ const HospitalLogin = async (req, res) => {
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     expires: expirationDate,
-    secure: true,
-    sameSite: "none",
+    secure: process.env.NODE_ENV === "production", 
+  sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax", 
+
   });
 
   return res.status(200).json({
@@ -259,8 +261,8 @@ const verifyOtp = async (req, res) => {
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       expires: expirationDate,
-      secure: true,
-      sameSite: "none",
+        secure: process.env.NODE_ENV === "production", 
+  sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
     });
 
     return res.status(200).json({
@@ -669,8 +671,9 @@ const hospitalDelete = async (req, res) => {
     res.cookie("refreshToken", "", {
       httpOnly: true,
       expires: expirationDate,
-      secure: true,
-      sameSite: "none",
+    
+        secure: process.env.NODE_ENV === "production", 
+  sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
     });
   }
   const hospital = await Hospital.findById(id);
@@ -789,19 +792,11 @@ const updateBooking = async (req, res) => {
         message: `Your booking with ${booking.doctor_name} is now ${booking.status}.`,
       });
       
-      // Prepare push notification message
-      const messages = [
-        {
-          to: pushToken,
-          sound: "default",
-          title: "Booking Update",
-          body: `Your booking is ${booking.status}`,
-          data: { bookingId, status },
-        },
-      ];
-      
-      // Send notification fast and reliably
-      await expo.sendPushNotificationsAsync(messages);
+       const io = getIO();
+    io.emit("pushNotificationPhone", {
+      userId: booking.userId,
+  message: `Your booking with ${booking.doctor_name} is ${booking.status}`,
+    });
     }
 
     return res.status(200).json({
@@ -860,6 +855,19 @@ const getBookingsByUserId = async (req, res) => {
   }
 };
 
+ const getSingleHospital = async (req, res) => {
+  const { id } = req.params;
+
+  if (!id) throw new createError.BadRequest("Invalid hospital ID");
+
+  const hospital = await Hospital.findById(id);
+  if (!hospital) throw new createError.NotFound("hospital not found");
+
+  return res.status(200).json(hospital);
+};
+
+
+
 module.exports = {
   HospitalRegistration,
   HospitalLogin,
@@ -879,5 +887,7 @@ module.exports = {
   updateBooking,
   getBookingsByUserId,
   getHospitalDataSearch,
-  getHospitalDoctors
+  getHospitalDoctors,
+  getSingleHospital
 };
+

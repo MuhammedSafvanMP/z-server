@@ -66,12 +66,16 @@ const login = async (req, res) => {
   const sevenDayInMs = 7 * 24 * 60 * 60 * 1000;
   const expirationDate = new Date(Date.now() + sevenDayInMs);
 
+ 
+
   res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    expires: expirationDate,
-    secure: true,
-    sameSite: "none",
-  });
+  httpOnly: true,
+  expires: expirationDate,
+  secure: process.env.NODE_ENV === "production", 
+  sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+});
+
+
   return res.status(200).json({
     message: "Loggedin successfully",
     token: token,
@@ -125,12 +129,14 @@ const ambulanceDelete = async (req, res) => {
 
   if (req.cookies.refreshToken) {
     const expirationDate = new Date(0);
-    res.cookie("refreshToken", "", {
-      httpOnly: true,
-      expires: expirationDate,
-      secure: true,
-      sameSite: "none",
-    });
+    res.cookie("refreshToken", refreshToken, {
+  httpOnly: true,
+
+  expires: expirationDate,
+    secure: process.env.NODE_ENV === "production", 
+  sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+});
+
   }
   const hospital = await Ambulance.findById(id);
   if (!hospital) {
