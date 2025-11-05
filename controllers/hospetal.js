@@ -295,6 +295,98 @@ const resetPassword = async (req, res) => {
   });
 };
 
+const getHospitalDataSearch = async (req, res) => {
+  try {
+    const { search } = req.params;
+
+    const findHospital = await Hospital.find({
+      $or: [
+        { type: { $regex: new RegExp(search, "i") } }, // Match type (case-insensitive)
+        { "specialties.name": { $regex: new RegExp(search, "i") } } // Match specialties array name
+      ]
+    });
+
+    res.status(200).json(findHospital);
+  } catch (error) {
+    console.error("Error fetching hospitals:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+
+
+const getHospitalDoctors = async (req, res) => {
+  try {
+    const { id, speciality } = req.query;
+
+    // 🏥 Case 1: No hospital ID → show all doctors from all hospitals
+    if (!id) {
+      const hospitals = await Hospital.find();
+
+      const allDoctors = hospitals.flatMap((hospital) =>
+        hospital.specialties.flatMap((spec) =>
+          spec.doctors.map((doc) => ({
+            hospital: hospital.name,
+            specialty: spec.name,
+            ...doc.toObject(),
+          }))
+        )
+      );
+
+      return res.status(200).json({
+        hospital: "All Hospitals",
+        specialty: "All Specialties",
+        doctors: allDoctors,
+      });
+    }
+
+    // 🏥 Case 2: ID provided → find that hospital
+    const hospital = await Hospital.findById(id);
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+
+    // 🩺 Case 3: Hospital + speciality provided
+    if (speciality) {
+      const selectedSpecialty = hospital.specialties.find(
+        (spec) =>
+          spec.name.toLowerCase().trim() === speciality.toLowerCase().trim()
+      );
+
+      if (!selectedSpecialty) {
+        return res.status(404).json({
+          message: `Specialty '${speciality}' not found in ${hospital.name}`,
+        });
+      }
+
+      return res.status(200).json({
+        hospital: hospital.name,
+        specialty: selectedSpecialty.name,
+        doctors: selectedSpecialty.doctors || [],
+      });
+    }
+
+    // 🏥 Case 4: ID provided but no speciality → show all doctors from this hospital
+    const allDoctors = hospital.specialties.flatMap((spec) =>
+      spec.doctors.map((doc) => ({
+        ...doc.toObject(),
+        specialty: spec.name,
+      }))
+    );
+
+    return res.status(200).json({
+      hospital: hospital.name,
+      specialty: "All Specialties",
+      doctors: allDoctors,
+    });
+  } catch (error) {
+    console.error("Error fetching hospital doctors:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+
+
 // Get Hospital(DashBoard) Details
 const getHospitalDetails = async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
@@ -785,5 +877,7 @@ module.exports = {
   hospitalDelete,
   createBooking,
   updateBooking,
-  getBookingsByUserId
+  getBookingsByUserId,
+  getHospitalDataSearch,
+  getHospitalDoctors
 };
