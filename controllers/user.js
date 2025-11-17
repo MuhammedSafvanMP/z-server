@@ -3,8 +3,11 @@ const HttpError = require("http-errors");
 const bcrypt = require("bcrypt");
 const Jwt = require("jsonwebtoken");
 const User = require("../models/user");
+const Review = require("../models/review");
 const Hospital = require("../models/hospital");
+const Blood = require("../models/blood");
 const twilio = require("twilio");
+const { getIO } = require("../sockets/socket");
 require("dotenv").config();
 
 const otpStorage = new Map();
@@ -40,16 +43,17 @@ const joiSchema = Joi.object({
 
 // User Registration
 const userRegister = async (req, res) => {
+  
   const { error } = joiSchema.validate(req.body);
   if (error) {
-    throw new HttpError.BadRequest(error.details[0].message);
+     return res.status(400).json(error.details[0].message);
   }
 
   const existingUser = await User.findOne({
     email: req.body.email,
   });
   if (existingUser) {
-    throw new HttpError.Conflict("Email is already registered, Please login");
+    return res.status(400).json({ message: "Email is already registered, Please login" });
   }
   const hashedPassword = await bcrypt.hash(req.body.password, 10);
   const newUser = new User({
@@ -71,11 +75,12 @@ const userLogin = async (req, res) => {
 
   const user = await User.findOne({ email: email });
   if (user === null) {
-    throw new HttpError.NotFound("You email is not found, Please Register");
+    return res.status(404).json({ message: "You email is not found, Please Register"});
   }
   const passwordCheck = await bcrypt.compare(password, user.password);
   if (!passwordCheck) {
-    throw new HttpError.BadRequest("Incorrect password, try again!");
+    return res.status(404).json({ message: "Incorrect password, try again!"});
+
   }
   const jwtSecret = process.env.JWT_SECRET;
 
@@ -119,6 +124,8 @@ const login = async (req, res) => {
       return res.status(400).json({ message: "Phone number not registered!" });
     }
 
+
+
     // Ensure +91 prefix with space
     if (!phone.startsWith("+91")) {
       phone = "+91 " + phone.replace(/^\+91\s*/, "").trim();
@@ -156,7 +163,8 @@ const login = async (req, res) => {
 
 const verifyOtp = async (req, res) => {
   try {
-    const { phone, otp } = req.body;
+    const { phone, otp, FcmToken } = req.body;
+    
 
     if (!phone || !otp) {
       return res.status(400).json({ message: "Phone and OTP are required" });
@@ -185,6 +193,11 @@ const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "Customer not found" });
     }
 
+    user.FcmToken = FcmToken;
+    await user.save();
+
+    const bloodDonor = await Blood.findOne({userId:  user._id});    
+
     // Generate JWT
     const token = Jwt.sign(
       { email: user.email, id: user._id },
@@ -198,6 +211,7 @@ const verifyOtp = async (req, res) => {
       _id: user._id,
       phone: user.phone,
       picture: user?.picture,
+      donorId: bloodDonor._id  
     };
 
     return res.status(200).json({
@@ -272,83 +286,105 @@ const getHospitals = async (req, res) => {
 
 // Post a review
 const postReview = async (req, res) => {
-  const { user_id, rating, comment, date } = req.body;
-  const { id } = req.params;
+  const { userId, rating, comment, hospitalId } = req.body;
 
-  const hospital = await Hospital.findById(id);
+
+  const hospital = await Hospital.findById(hospitalId);
   if (!hospital) {
     throw new HttpError.NotFound("Hospital not found");
   }
 
-  hospital.reviews.push({ user_id, rating, comment, date });
+   const review = await Review.create({ userId, rating, comment, hospitalId });
 
-  await hospital.save();
-  const updatedHospital = await hospital.populate({
-    path: "reviews.user_id",
-    select: "name email",
-  });
-
-  return res.status(200).json({
-    message: "Review posted successfully",
-    data: updatedHospital,
+  return res.status(201).json({
+    message: "Review created successfully",
+    data: review,
   });
 };
 
-const editReview = async (req, res) => {
-  const { hospital_id, reviewId } = req.params;
-  const { rating, comment } = req.body;
-  const hospital = await Hospital.findById(hospital_id);
-  if (!hospital) {
-    throw new HttpError.NotFound("Hospital not found");
-  }
-  const index = hospital.reviews.findIndex(
-    (element) => element._id.toString() === reviewId
-  );
-  if (index === -1) {
-    throw new HttpError.NotFound("Review not found");
-  }
-  hospital.reviews[index].rating = rating;
-  hospital.reviews[index].comment = comment;
-  hospital.reviews[index].date = new Date().toISOString();
 
-  await hospital.save();
 
-  const updatedHospital = await hospital.populate({
-    path: "reviews.user_id",
-    select: "name email",
+const getReviews = async (req, res) => {
+ 
+  const review = await Review.findById();
+  if (!review) {
+    throw new HttpError.NotFound("Reviews not found");
+  }
+
+  return res.status(201).json({
+    message: "Review created successfully",
+    data: review,
   });
-  return res.status(200).json({
-    message: "Review updated successfully",
-    data: updatedHospital,
+};
+
+
+
+const getReviewsAHospital = async (req, res) => {
+   
+  const {id } = req.params;
+
+   
+  const review = await Review.find({ hospitalId: id }).populate("userId");
+  if (!review) {
+    throw new HttpError.NotFound("Reviews not found");
+  }
+  
+  return res.status(201).json({
+    message: "Review created successfully",
+    data: review,
   });
+};
+
+const editReview = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { rating, comment } = req.body;
+
+    // Find review by ID
+    const review = await Review.findById(id);
+    if (!review) {
+      return res.status(404).json({ message: "Review not found" });
+    }
+
+    // Update only the provided fields
+    if (rating !== undefined) review.rating = rating;
+    if (comment !== undefined) review.comment = comment;
+
+    // Save updated review
+    await review.save();
+
+    return res.status(200).json({
+      message: "Review updated successfully",
+      data: review,
+    });
+  } catch (error) {
+    console.error("Error updating review:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
 };
 
 const deleteReview = async (req, res) => {
-  const { hospital_id, reviewId } = req.params;
-  const hospital = await Hospital.findById(hospital_id);
-  if (!hospital) {
-    throw new HttpError.NotFound("Hospital not found");
+  try {
+    const { id } = req.params;
+
+    const review = await Review.findByIdAndDelete(id);
+
+    if (!review) {
+      return res.status(404).json({ message: "Review not found" });
+    }
+
+    return res.status(200).json({
+      message: "Review deleted successfully",
+      data: review,
+    });
+  } catch (error) {
+    console.error("Error deleting review:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
-  const index = hospital.reviews.findIndex(
-    (element) => element._id.toString() === reviewId
-  );
-  if (index === -1) {
-    throw new HttpError.NotFound("Review not found");
-  }
-
-  hospital.reviews.splice(index, 1);
-
-  await hospital.save();
-
-  const updatedHospital = await hospital.populate({
-    path: "reviews.user_id",
-    select: "name email",
-  });
-  return res.status(200).json({
-    message: "Review deleted successfully",
-    data: updatedHospital,
-  });
 };
+
+
+
 
 const saveExpoToken = async (req, res) => {
   try {
@@ -372,6 +408,23 @@ const saveExpoToken = async (req, res) => {
   }
 };
 
+
+const test = async (req, res) => {
+  try {
+    const { id }  = req.params;
+
+     const io = getIO();
+    io.emit("pushNotificationPhone", {
+      userId: id,
+       message: `Your booking accepted`,
+    });    
+    
+  } catch (error) {
+    console.error("Error saving expo token:", error);
+    return res.status(500).json({ message: "Server error", error });
+  }
+};
+
 module.exports = {
   userRegister,
   userLogin,
@@ -384,5 +437,8 @@ module.exports = {
   postReview,
   editReview,
   deleteReview,
-  saveExpoToken
+  saveExpoToken,
+  getReviews,
+  getReviewsAHospital,
+  test
 };

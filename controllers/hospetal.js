@@ -1,4 +1,3 @@
-const createError = require("http-errors");
 const bcrypt = require("bcrypt");
 const Jwt = require("jsonwebtoken");
 const Hospital = require("../models/hospital");
@@ -6,6 +5,8 @@ const User = require("../models/user");
 const notficationModel = require("../models/notification");
 const mongoose = require("mongoose");
 const { v2: cloudinary } = require("cloudinary");
+const  admin = require("firebase-admin");
+
 
 const { getIO } = require("../sockets/socket");
 
@@ -57,7 +58,8 @@ const HospitalRegistration = async (req, res) => {
   // Check if the hospital already exists with the same email
   const existingHospital = await Hospital.findOne({ email });
   if (existingHospital) {
-    throw new createError.Conflict("Email already exists. Please login.");
+     return res.status(409).json({ message: "Email already exists. Please login." });
+
   }
 
   // Hash the password before saving it
@@ -121,15 +123,15 @@ const HospitalLogin = async (req, res) => {
 
   const hospital = await Hospital.findOne({ email: email });
   if (!hospital) {
-    throw new createError.Unauthorized("User not found!");
+    return res.status(401).json({ message: "User not found!" });
   }
   const isValidPassword = await bcrypt.compare(password, hospital.password);
   if (!isValidPassword) {
-    throw new createError.Unauthorized("Invalid email or password");
+        return res.status(401).json({ message: "Invalid email or password" });
   }
   const jwtKey = process.env.JWT_SECRET;
   if (!jwtKey) {
-    throw new Error("JWT_SECRET is not defined");
+    return res.status(400).json({ message: "JWT_SECRET is not defined" });
   }
   // Generate JWT tokens
   const token = Jwt.sign({ id: hospital._id, name: hospital.name }, jwtKey, {
@@ -241,7 +243,8 @@ const verifyOtp = async (req, res) => {
 
     const jwtKey = process.env.JWT_SECRET;
     if (!jwtKey) {
-      throw new Error("JWT_SECRET is not defined");
+          return res.status(401).json({ message: "JWT_SECRET is not defined" });    
+
     }
     // Generate JWT tokens
     const token = Jwt.sign({ id: hospital._id, name: hospital.name }, jwtKey, {
@@ -283,7 +286,7 @@ const resetPassword = async (req, res) => {
 
   const hospital = await Hospital.findOne({ phone });
   if (!hospital) {
-    throw new createError.NotFound("No user found");
+    return res.status(401).json({ message: "No user found" });    
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -317,75 +320,108 @@ const getHospitalDataSearch = async (req, res) => {
 
 
 
+
+// ✅ Get doctors by hospital or speciality or all
 const getHospitalDoctors = async (req, res) => {
   try {
     const { id, speciality } = req.query;
 
-    // 🏥 Case 1: No hospital ID → show all doctors from all hospitals
-    if (!id) {
-      const hospitals = await Hospital.find();
 
-      const allDoctors = hospitals.flatMap((hospital) =>
-        hospital.specialties.flatMap((spec) =>
-          spec.doctors.map((doc) => ({
-            hospital: hospital.name,
-            specialty: spec.name,
-            ...doc.toObject(),
-          }))
-        )
-      );
+    // 🧩 Case 2: Filter by speciality across all hospitals
+    if ( id && speciality) {
+
+      
+      const hospitals = await Hospital.find({
+        "_id": id,
+        "specialties.name": { $regex: new RegExp(speciality, "i") },
+      });
+
+      const filteredHospitals = hospitals
+        .map((hosp) => {
+          const matchingDoctors = [];
+          hosp.specialties.forEach((spec) => {
+            if (spec.name.toLowerCase().includes(speciality.toLowerCase())) {
+              spec.doctors?.forEach((doctor) => {
+                matchingDoctors.push({
+                  ...doctor.toObject?.() || doctor,
+                  specialty: spec.name,
+                  department_info: spec.department_info,
+                });
+              });
+            }
+          });
+
+          return {
+            id: hosp._id,
+            name: hosp.name,
+            address: hosp.address,
+            phone: hosp.phone,
+            email: hosp.email,
+            type: hosp.type,
+            image: hosp.image,
+            doctors: matchingDoctors,
+          };
+        })
+        .filter((hosp) => hosp.doctors.length > 0);
+
+        console.log(filteredHospitals, "filteredHospitals");
+        
 
       return res.status(200).json({
-        hospital: "All Hospitals",
-        specialty: "All Specialties",
-        doctors: allDoctors,
+        success: true,
+        message: "Hospitals filtered by speciality fetched successfully",
+        hospitals: filteredHospitals,
       });
     }
 
-    // 🏥 Case 2: ID provided → find that hospital
-    const hospital = await Hospital.findById(id);
-    if (!hospital) {
-      return res.status(404).json({ message: "Hospital not found" });
-    }
+    // 🧩 Case 3: Return all hospitals with all doctors
+    const hospitals = await Hospital.find();
 
-    // 🩺 Case 3: Hospital + speciality provided
-    if (speciality) {
-      const selectedSpecialty = hospital.specialties.find(
-        (spec) =>
-          spec.name.toLowerCase().trim() === speciality.toLowerCase().trim()
-      );
-
-      if (!selectedSpecialty) {
-        return res.status(404).json({
-          message: `Specialty '${speciality}' not found in ${hospital.name}`,
+    const hospitalsWithDoctors = hospitals.map((hosp) => {
+      let allDoctors = [];
+      hosp.specialties.forEach((specialty) => {
+        specialty.doctors?.forEach((doctor) => {
+          allDoctors.push({
+            ...doctor.toObject?.() || doctor,
+            specialty: specialty.name,
+            department_info: specialty.department_info,
+          });
         });
-      }
-
-      return res.status(200).json({
-        hospital: hospital.name,
-        specialty: selectedSpecialty.name,
-        doctors: selectedSpecialty.doctors || [],
       });
-    }
 
-    // 🏥 Case 4: ID provided but no speciality → show all doctors from this hospital
-    const allDoctors = hospital.specialties.flatMap((spec) =>
-      spec.doctors.map((doc) => ({
-        ...doc.toObject(),
-        specialty: spec.name,
-      }))
-    );
+      return {
+        id: hosp._id,
+        name: hosp.name,
+        address: hosp.address,
+        phone: hosp.phone,
+        email: hosp.email,
+        type: hosp.type,
+        image: hosp.image,
+        doctors: allDoctors,
+        doctorCount: allDoctors.length,
+      };
+    });
+
 
     return res.status(200).json({
-      hospital: hospital.name,
-      specialty: "All Specialties",
-      doctors: allDoctors,
+      success: true,
+      message: "All hospitals with doctors fetched successfully",
+      hospitals: hospitalsWithDoctors,
     });
   } catch (error) {
-    console.error("Error fetching hospital doctors:", error);
-    res.status(500).json({ message: "Server error", error });
+    console.error("❌ Error in getHospitalDoctors:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching hospital doctors",
+      error: error.message,
+    });
   }
 };
+
+
+
+
+
 
 
 
@@ -393,7 +429,8 @@ const getHospitalDoctors = async (req, res) => {
 const getHospitalDetails = async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) {
-    throw new createError.Unauthorized("No token provided. Please login.");
+            return res.status(401).json({ message: "No token provided. Please login." });    
+
   }
 
   const decoded = Jwt.verify(
@@ -401,7 +438,7 @@ const getHospitalDetails = async (req, res) => {
     process.env.JWT_SECRET
   );
   if (!decoded) {
-    throw new createError.Unauthorized("Invalid token. Please login.");
+        return res.status(401).json({ message: "Invalid token. Please login." });    
   }
 
   const hospital = await Hospital.findById(decoded.id);
@@ -475,7 +512,8 @@ const addSpecialty = async (req, res) => {
 
   const hospital = await Hospital.findById(id);
   if (!hospital) {
-    throw new createError.NotFound("Hospital not found. Wrong input");
+    return res.status(404).json({ message: "Hospital not found. Wrong input" });    
+
   }
 
   // Check the spectilty already exist
@@ -486,7 +524,7 @@ const addSpecialty = async (req, res) => {
   );
 
   if (isExist) {
-    throw new createError.Conflict("Specialty is already exist!");
+    return res.status(404).json({ message: "Specialty is already exist!" });    
   }
 
   hospital.specialties.push({
@@ -512,14 +550,14 @@ const updateSpecialty = async (req, res) => {
   const { id } = req.params;
   const hospital = await Hospital.findById(id);
   if (!hospital) {
-    throw new createError.NotFound("Hospital not found. Wrong input");
+    return res.status(404).json({ message: "Hospital not found. Wrong input" });    
   }
   // Check the spectilty
   const specialty = hospital.specialties.find(
     (element) => element.name === name
   );
   if (!specialty) {
-    throw new createError.NotFound("Specialty not found.");
+    return res.status(404).json({ message: "Specialty not found."});
   }
 
   // Update the fields
@@ -555,7 +593,7 @@ const deleteSpecialty = async (req, res) => {
 
   const hospital = await Hospital.findById(id);
   if (!hospital) {
-    throw new createError.NotFound("Hospital not found. Wrong input");
+        return res.status(404).json({ message: "Hospital not found. Wrong input"});
   }
 
   // Check the spectilty
@@ -564,7 +602,8 @@ const deleteSpecialty = async (req, res) => {
       element.name?.trim().toLowerCase() === name.trim().toLowerCase()
   );
   if (index === -1) {
-    throw new createError.NotFound("Specialty not found.");
+        return res.status(404).json({ message: "Specialty not found."});
+
   }
   hospital.specialties.splice(index, 1);
 
@@ -613,15 +652,16 @@ const updateDoctor = async (req, res) => {
   );
 
   if (!targetSpecialty) {
-    throw new createError.NotFound(`Specialty ${specialty} not found`);
+    return res.status(400).json({ message: `Specialty ${specialty} not found`});
+
   }
 
   const targetDoctor = targetSpecialty.doctors.find((d) => d._id == _id);
 
   if (!targetDoctor) {
-    throw new createError.NotFound(
-      `Doctor with ID ${_id} not found in specialty ${specialty}`
-    );
+ 
+    return res.status(400).json({ message: `Doctor with ID ${_id} not found in specialty ${specialty}`});
+
   }
 
   targetDoctor.name = data.name;
@@ -642,7 +682,8 @@ const deleteDoctor = async (req, res) => {
 
   const hospital = await Hospital.findById(hospital_id);
   if (!hospital) {
-    throw new createError.NotFound("Hospital not found!");
+              return res.status(400).json({ message: "Hospital not found!" });
+
   }
 
   const targetSpecialty = hospital.specialties.find(
@@ -678,7 +719,8 @@ const hospitalDelete = async (req, res) => {
   }
   const hospital = await Hospital.findById(id);
   if (!hospital) {
-    throw new createError.NotFound("Hospital not found!");
+          return res.status(400).json({ message: "Hospital not found!" });
+
   }
   if (hospital.image?.public_id) {
     await cloudinary.uploader.destroy(hospital.image.public_id);
@@ -687,10 +729,145 @@ const hospitalDelete = async (req, res) => {
   return res.status(200).send("Your account deleted successfully");
 };
 
-const createBooking = async (req, res) => {
+// const createBooking = async (req, res) => {
+//   try {
+//     const { id } = req.params; // hospital id
+//     const { userId, specialty, doctor_name, booking_date,  patient_name ,  patient_phone , patient_place,  patient_dob } = req.body;
+
+//     // Validate user
+//     const user = await User.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     // Validate hospital
+//     const hospital = await Hospital.findById(id);
+//     if (!hospital) {
+//       return res.status(404).json({ message: "Hospital not found" });
+//     }
+
+//     // Create new booking object
+//     const newBooking = {
+//       userId,
+//       specialty,
+//       doctor_name,
+//       booking_date,
+//       status: "pending",
+//       patient_name ,  patient_phone , patient_place,  patient_dob
+//     };
+
+//     // Push into hospital booking array
+//     hospital.booking.push(newBooking);
+
+//     // Save hospital
+//     await hospital.save();
+
+//     await notficationModel.create({
+//       hospitalId: id,
+//       message: `${doctor_name} has created a new booking.`,
+//     });
+
+//     const io = getIO();
+//     io.emit("pushNotification", {
+//       hospitalId: id,
+//       message: `New booking by ${doctor_name}`,
+//     });
+
+//     return res.status(201).json({
+//       message: "Booking created successfully",
+//       data: hospital.booking[hospital.booking.length - 1], 
+//       status: 201,
+//     });
+//   } catch (error) {
+//     console.error("Error creating booking:", error);
+//     return res.status(500).json({ message: "Server error", error });
+//   }
+// };
+
+// const updateBooking = async (req, res) => {
+//   try {
+//     const { hospitalId, bookingId } = req.params;
+//     const { status, booking_date, booking_time } = req.body;
+
+//     // Find hospital
+//     const hospital = await Hospital.findById(hospitalId);
+//     if (!hospital) {
+//       return res.status(404).json({ message: "Hospital not found" });
+//     }
+
+//     // Find booking inside hospital
+//     const booking = hospital.booking.id(bookingId);
+//     if (!booking) {
+//       return res.status(404).json({ message: "Booking not found" });
+//     }
+
+//     // Update booking fields
+//     if (status) booking.status = status;
+//     if (booking_date) booking.booking_date = booking_date;
+//     if (booking_time) booking.booking_time = booking_time;
+
+//     await hospital.save();
+
+//     // Find the user of this booking
+//     const user = await User.findById(booking.userId);
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+   
+
+//     if (status == "cancel") {
+//       await notficationModel.create({
+//         hospitalId: hospitalId,
+//         message: `The booking with  ${booking.doctor_name} has been ${booking.status}.`,
+//       });
+//     } else {
+//       // Create a notification record in DB
+//       await notficationModel.create({
+//         userId: booking.userId,
+//         message: `Your booking with ${booking.doctor_name} is now ${booking.status}.`,
+//       });
+      
+//        const io = getIO();
+//     io.emit("pushNotificationPhone", {
+//       userId: booking.userId,
+//   message: `Your booking with ${booking.doctor_name} is ${booking.status}`,
+//     });
+//     }
+
+//     return res.status(200).json({
+//       message: "Booking updated and notification sent",
+//       booking,
+//     });
+//   } catch (error) {
+//     console.error("Error updating booking:", error);
+//     return res.status(500).json({ message: "Server error", error });
+//   }
+// };
+
+
+const createBooking = async (
+  req,
+  res
+) => {
   try {
     const { id } = req.params; // hospital id
-    const { userId, specialty, doctor_name, booking_date,  patient_name ,  patient_phone , patient_place,  patient_dob } = req.body;
+    const { 
+      userId, 
+      specialty, 
+      doctor_name, 
+      booking_date,  
+      patient_name,  
+      patient_phone, 
+      patient_place,  
+      patient_dob 
+    } = req.body;
+
+    // Validate phone number - remove starting 0 if needed
+    const cleanedPhone = patient_phone.startsWith("0") ? patient_phone.slice(1) : patient_phone;
+    if (!/^\d{10}$/.test(cleanedPhone)) {
+             return res.status(400).json({ message:  "Phone number must be exactly 10 digits" });
+    }
 
     // Validate user
     const user = await User.findById(userId);
@@ -704,6 +881,47 @@ const createBooking = async (req, res) => {
       return res.status(404).json({ message: "Hospital not found" });
     }
 
+    // Parse booking date and get day name
+    const bookingDate = new Date(booking_date);
+    const bookingDay = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
+    
+    // Find the doctor and check availability
+    let isDoctorAvailable = false;
+    let foundDoctor = null;
+    let availableDays = [];
+
+    // Loop through specialties to find the doctor
+    for (const specialtyItem of hospital.specialties) {
+      for (const doctor of specialtyItem.doctors) {
+        if (doctor.name === doctor_name) {
+          foundDoctor = doctor;
+          
+          // Check if doctor has consulting schedule
+          if (doctor.consulting && Array.isArray(doctor.consulting)) {
+            availableDays = doctor.consulting
+              .filter(consult => consult.day && consult.sessions && consult.sessions.length > 0)
+              .map(consult => consult.day);
+            
+            isDoctorAvailable = availableDays.includes(bookingDay);
+          }
+          break;
+        }
+      }
+      if (foundDoctor) break;
+    }
+
+    if (!foundDoctor) {
+      return res.status(404).json({ 
+        message: `Doctor ${doctor_name} not found in this hospital` 
+      });
+    }
+
+    if (!isDoctorAvailable) {
+      return res.status(400).json({ 
+        message: `Doctor ${doctor_name} is not available on ${bookingDay}. Available days: ${availableDays.join(', ')}` 
+      });
+    }
+
     // Create new booking object
     const newBooking = {
       userId,
@@ -711,7 +929,10 @@ const createBooking = async (req, res) => {
       doctor_name,
       booking_date,
       status: "pending",
-      patient_name ,  patient_phone , patient_place,  patient_dob
+      patient_name,  
+      patient_phone, 
+      patient_place,  
+      patient_dob
     };
 
     // Push into hospital booking array
@@ -720,15 +941,17 @@ const createBooking = async (req, res) => {
     // Save hospital
     await hospital.save();
 
+    // Create notification
     await notficationModel.create({
       hospitalId: id,
-      message: `${doctor_name} has created a new booking.`,
+      message: `New booking created for Dr. ${doctor_name} on ${bookingDay}.`,
     });
 
+    // Emit socket event
     const io = getIO();
     io.emit("pushNotification", {
       hospitalId: id,
-      message: `New booking by ${doctor_name}`,
+      message: `New booking by ${patient_name} for Dr. ${doctor_name}`,
     });
 
     return res.status(201).json({
@@ -741,18 +964,55 @@ const createBooking = async (req, res) => {
   }
 };
 
-const updateBooking = async (req, res) => {
+
+
+
+// Initialize Firebase Admin with environment variables
+if (!admin.apps.length) {
+  try {
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+    if (!projectId || !clientEmail || !privateKey) {
+      throw new Error('Missing Firebase environment variables');
+    }
+
+    console.log('🔧 Initializing Firebase Admin with project:', projectId);
+
+    const serviceAccount = {
+      type: 'service_account',
+      project_id: projectId,
+      private_key: privateKey,
+      client_email: clientEmail,
+    };
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+
+    console.log('✅ Firebase Admin initialized successfully');
+  } catch (error) {
+    console.error('❌ Firebase Admin initialization failed:', error.message);
+  }
+}
+
+ const updateBooking = async (
+  req,
+  res
+) => {
   try {
     const { hospitalId, bookingId } = req.params;
     const { status, booking_date, booking_time } = req.body;
 
-    // Find hospital
+    console.log('🚀 UPDATE BOOKING API CALLED', { hospitalId, bookingId, status });
+
+    // Find hospital and booking
     const hospital = await Hospital.findById(hospitalId);
     if (!hospital) {
       return res.status(404).json({ message: "Hospital not found" });
     }
 
-    // Find booking inside hospital
     const booking = hospital.booking.id(bookingId);
     if (!booking) {
       return res.status(404).json({ message: "Booking not found" });
@@ -765,42 +1025,119 @@ const updateBooking = async (req, res) => {
 
     await hospital.save();
 
-    // Find the user of this booking
+    // Find the user
     const user = await User.findById(booking.userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Check if user has Expo push token
-    const pushToken = user.expoPushToken;
-    if (!pushToken || !Expo.isExpoPushToken(pushToken)) {
-      console.warn("Invalid or missing Expo token for user", user._id);
-      return res
-        .status(200)
-        .json({ message: "Booking updated but push token missing", booking });
+    // 🔥 FCM NOTIFICATION WITH BETTER ERROR HANDLING
+    try {
+      // ✅ Check both possible field names (FcmToken vs fcmToken)
+      const userFcmToken = user.FcmToken 
+      
+      // For testing, you can hardcode your token:
+      // const userFcmToken = 'eJNMsYnaQoaJShP4rG55Au:APA91bFdq0-YkDRWcHNn1bR2qD2dGPfKQdtsW1XSUc-1N-wHkSpyDhGFJ8VDzn8rXgh6wymfnqWsQP8umgOHc9cuvM61XVID8lzE8SzMI4B05wT1j4bNfY8';
+      
+      console.log(`📱 User FCM Token: ${userFcmToken ? 'Available' : 'Not available'}`);
+      
+      if (userFcmToken && userFcmToken.length > 0) {
+        console.log(`📱 Sending FCM notification to: ${userFcmToken.substring(0, 50)}...`);
+        
+        let notificationTitle = '';
+        let notificationBody = '';
+        let notificationType = '';
+
+        if (status === "cancel" || status === "cancelled") {
+          notificationTitle = 'Booking Cancelled ❌';
+          notificationBody = `Your booking with Dr. ${booking.doctor_name} has been cancelled.`;
+          notificationType = 'booking_cancelled';
+          
+          await notficationModel.create({
+            hospitalId: hospitalId,
+            message: `The booking with Dr. ${booking.doctor_name} has been cancelled.`,
+          });
+        } else {
+          notificationTitle = 'Booking Updated';
+          notificationBody = `Your booking with Dr. ${booking.doctor_name} is now ${status}.`;
+          notificationType = 'booking_updated';
+          
+          await notficationModel.create({
+            userId: booking.userId,
+            message: `Your booking with Dr. ${booking.doctor_name} is now ${status}.`,
+          });
+        }
+
+        const messagePayload = {
+          notification: {
+            title: notificationTitle,
+            body: notificationBody,
+          },
+          data: {
+            type: notificationType,
+            bookingId: bookingId,
+            hospitalId: hospitalId,
+            click_action: 'FLUTTER_NOTIFICATION_CLICK'
+          },
+          android: {
+            notification: {
+              sound: 'default',
+              channelId: 'high_importance_channel',
+              priority: 'high',
+              icon: 'ic_notification',
+              color: (status === 'cancel' || status === 'cancelled') ? '#FF3B30' : '#28A745',
+              clickAction: 'FLUTTER_NOTIFICATION_CLICK'
+            }
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: 'default',
+                badge: 1,
+                alert: {
+                  title: notificationTitle,
+                  body: notificationBody
+                }
+              }
+            }
+          },
+          token: userFcmToken
+        };
+
+        console.log('🚀 Sending FCM notification...');
+        const response = await admin.messaging().send(messagePayload);
+        console.log('✅ FCM Notification sent successfully!');
+        console.log('📱 Message ID:', response);
+        
+      } else {
+        console.log('⚠️ No FCM token available for user:', user._id);
+      }
+    } catch (fcmError) {
+      console.error('❌ FCM Error details:');
+      console.error('   Code:', fcmError.code);
+      console.error('   Message:', fcmError.message);
+      
+      if (fcmError.errorInfo) {
+        console.error('   Error Info:', fcmError.errorInfo);
+      }
     }
 
-    if (status == "cancel") {
-      await notficationModel.create({
+    // Socket.IO for real-time updates
+    const io = getIO();
+    if (status === "cancel" || status === "cancelled") {
+      io.emit("pushNotificationPhone", {
         hospitalId: hospitalId,
-        message: `The booking with  ${booking.doctor_name} has been ${booking.status}.`,
+        message: `The booking with Dr. ${booking.doctor_name} has been ${status}.`,
       });
     } else {
-      // Create a notification record in DB
-      await notficationModel.create({
+      io.emit("pushNotificationPhone", {
         userId: booking.userId,
-        message: `Your booking with ${booking.doctor_name} is now ${booking.status}.`,
+        message: `Your booking with Dr. ${booking.doctor_name} is ${status}`,
       });
-      
-       const io = getIO();
-    io.emit("pushNotificationPhone", {
-      userId: booking.userId,
-  message: `Your booking with ${booking.doctor_name} is ${booking.status}`,
-    });
     }
 
     return res.status(200).json({
-      message: "Booking updated and notification sent",
+      message: "Booking updated successfully",
       booking,
     });
   } catch (error) {
@@ -808,6 +1145,13 @@ const updateBooking = async (req, res) => {
     return res.status(500).json({ message: "Server error", error });
   }
 };
+
+
+
+
+
+
+
 
 const getBookingsByUserId = async (req, res) => {
   try {
@@ -855,15 +1199,30 @@ const getBookingsByUserId = async (req, res) => {
   }
 };
 
- const getSingleHospital = async (req, res) => {
-  const { id } = req.params;
+ const getSingleHospital = async (req, res, next) => {
+  try {
+    const { id } = req.params;
 
-  if (!id) throw new createError.BadRequest("Invalid hospital ID");
+    if (!id) throw new createError.BadRequest("Invalid hospital ID");
 
-  const hospital = await Hospital.findById(id);
-  if (!hospital) throw new createError.NotFound("hospital not found");
+    // ✅ Populate the `reviews.user_id` field with user info
+    const hospital = await Hospital.findById(id)
+      .populate({
+        path: "reviews.user_id",
+        select: "name email phone picture", // only return specific user fields
+      });
 
-  return res.status(200).json(hospital);
+    if (!hospital) throw new createError.NotFound("Hospital not found");
+
+    return res.status(200).json({
+      message: "Hospital details fetched successfully",
+      data: hospital,
+      status: 200,
+    });
+  } catch (error) {
+    console.error("❌ Error in getSingleHospital:", error);
+    next(error); // Pass to error middleware if using express error handler
+  }
 };
 
 

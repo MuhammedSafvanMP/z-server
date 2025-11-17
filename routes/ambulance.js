@@ -13,8 +13,8 @@ const AmbulanceRoutes = express.Router();
 
 AmbulanceRoutes.post("/ambulance/register", trycatch(Registeration));
 AmbulanceRoutes.post("/ambulance/login", trycatch(login));
-AmbulanceRoutes.get("/ambulance", trycatch(getanAmbulace));
-AmbulanceRoutes.get("/ambulances", trycatch(getAmbulaces));
+// AmbulanceRoutes.get("/ambulance", trycatch(getanAmbulace));
+AmbulanceRoutes.get("/ambulance", trycatch(getAmbulaces));
 AmbulanceRoutes.put("/ambulance/:id", trycatch(updateData));
 AmbulanceRoutes.delete("/ambulance/:id", trycatch(ambulanceDelete));
 

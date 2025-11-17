@@ -9,14 +9,15 @@ let io;
 const initSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: [
-        process.env.UserSide_URL,
-        process.env.AmbulanceSide_URL,
-        process.env.HospitalSide_URL,
-        process.env.AdminSide_URL,
-        "https://hosta-hospitals.vercel.app",
-        "http://localhost:5173",
-      ],
+      // origin: [
+      //   process.env.UserSide_URL,
+      //   process.env.AmbulanceSide_URL,
+      //   process.env.HospitalSide_URL,
+      //   process.env.AdminSide_URL,
+      //   "https://hosta-hospitals.vercel.app",
+      //   "http://localhost:5173",
+      // ],
+      origin: "*",
       credentials: true,
       methods: ["GET", "POST"],
     },

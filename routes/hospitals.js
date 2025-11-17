@@ -20,7 +20,8 @@ const {
   getBookingsByUserId,
   getHospitalDataSearch,
   getHospitalDoctors,
-  getSingleHospital
+  getSingleHospital,
+  
 
 } = require("../controllers/hospetal");
 const { uploadImage } = require("../middlewares/multer");
@@ -32,6 +33,12 @@ hospitalRoutes.post("/hospital/registration", trycatch(HospitalRegistration));
 hospitalRoutes.post("/hospital/login", trycatch(login));
 hospitalRoutes.post("/hospital/otp", trycatch(verifyOtp));
 hospitalRoutes.post("/hospital/login/mail", trycatch(HospitalLogin));
+
+hospitalRoutes.get(
+  "/hospital/doctors",
+  trycatch(getHospitalDoctors)
+);
+
 hospitalRoutes.get("/hospital/:id", trycatch(getSingleHospital));
 
 
@@ -45,15 +52,13 @@ hospitalRoutes.get(
   trycatch(getHospitalDetails)
 );
 
+
 hospitalRoutes.get(
   "/hospital/filter/:search",
   trycatch(getHospitalDataSearch)
 );
 
-hospitalRoutes.get(
-  "/hospital/doctors",
-  trycatch(getHospitalDoctors)
-);
+
 
 
 hospitalRoutes.put(

@@ -11,31 +11,52 @@ const createDonor = async (req, res) => {
       bloodGroup,
       address,
       userId,
-    } = req.body.newDonor;
+    } = req.body;
 
+    
     // Check if donor already exists by email
     const exists = await BloodDonor.findOne({ phone });
     if (exists) {
-      throw new createError.Conflict("Phone already exists");
+            return res.status(404).json({ message: "Phone already exists" });
+
     }
 
     // Validate phone number - remove starting 0 if needed
     const cleanedPhone = phone.startsWith("0") ? phone.slice(1) : phone;
     if (!/^\d{10}$/.test(cleanedPhone)) {
-      throw new createError.BadRequest(
-        "Phone number must be exactly 10 digits"
-      );
+     
+                  return res.status(404).json({ message: "Phone number must be exactly 10 digits" });
+
     }
 
     const existingUser = await User.findById(userId);
     if (!existingUser) {
-      throw new createError.NotFound("User not found");
+        return res.status(404).json({ message: "User not found"});      
     }
 
     const existingDonor = await BloodDonor.findOne({ userId });
     if (existingDonor) {
-      throw new createError.BadRequest("Donor already created");
+              return res.status(400).json({ message: "Donor already created"});      
     }
+
+      const dob = new Date(dateOfBirth);
+    const today = new Date();
+
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    const dayDiff = today.getDate() - dob.getDate();
+
+    if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+      age--;
+    }
+
+    if (age < 18) {
+      return res.status(400).json({
+        message: "You must be at least 18 years old to donate blood",
+        status: 400,
+      });
+    }
+
 
     const donor = new BloodDonor({
       phone: cleanedPhone,

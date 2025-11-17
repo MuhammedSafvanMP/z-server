@@ -27,13 +27,7 @@ const specialtySchema = new Schema({
   doctors: [doctorSchema],
 });
 
-// Review Schema
-const reviewSchema = new Schema({
-  user_id: { type: String, ref: "User", required: true },
-  rating: { type: Number, required: true, min: 1, max: 5 },
-  comment: { type: String },
-  date: { type: String },
-});
+
 
 // Working Hours Schema
 const workingHoursSchema = new Schema({
@@ -129,7 +123,6 @@ const hospitalSchema = new Schema({
   about: { type: String },
   working_hours: [workingHoursSchema],
   working_hours_clinic: [workingHoursClinicSchema],
-  reviews: [reviewSchema],
   specialties: [specialtySchema],
   booking: [bookingSchema],
   ads: [adSchema],

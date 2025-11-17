@@ -27,7 +27,7 @@ const userSchema = new Schema(
       match: [/^\d{10}$/, "Please enter a valid 10-digit phone number"],
     },
     picture: { imageUrl: { type: String }, public_id: { type: String } },
-    expoPushToken: {type: String}
+    FcmToken: {type: String},
 
   },
   { timestamps: true }
