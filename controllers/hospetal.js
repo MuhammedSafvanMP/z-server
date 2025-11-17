@@ -1206,12 +1206,8 @@ const getBookingsByUserId = async (req, res) => {
     if (!id) throw new createError.BadRequest("Invalid hospital ID");
 
     // ✅ Populate the `reviews.user_id` field with user info
-    const hospital = await Hospital.findById(id)
-      .populate({
-        path: "reviews.user_id",
-        select: "name email phone picture", // only return specific user fields
-      });
-
+    const hospital = await Hospital.findById(id);
+    
     if (!hospital) throw new createError.NotFound("Hospital not found");
 
     return res.status(200).json({
