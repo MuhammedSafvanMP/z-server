@@ -3,6 +3,7 @@ const Jwt = require("jsonwebtoken");
 const Hospital = require("../models/hospital");
 const User = require("../models/user");
 const notficationModel = require("../models/notification");
+const bookingModel = require("../models/bookings");
 const mongoose = require("mongoose");
 const { v2: cloudinary } = require("cloudinary");
 const  admin = require("firebase-admin");
@@ -922,9 +923,8 @@ const createBooking = async (
       });
     }
 
-    // Create new booking object
-    const newBooking = {
-      userId,
+   const booking = await   bookingModel.create({
+         userId,
       specialty,
       doctor_name,
       booking_date,
@@ -932,14 +932,12 @@ const createBooking = async (
       patient_name,  
       patient_phone, 
       patient_place,  
-      patient_dob
-    };
+      patient_dob,
+      hospitalId: id,
+  })
 
-    // Push into hospital booking array
-    hospital.booking.push(newBooking);
+  await booking.save()
 
-    // Save hospital
-    await hospital.save();
 
     // Create notification
     await notficationModel.create({
@@ -956,7 +954,7 @@ const createBooking = async (
 
     return res.status(201).json({
       message: "Booking created successfully",
-      data: hospital.booking[hospital.booking.length - 1], 
+      data: booking, 
     });
   } catch (error) {
     console.error("Error creating booking:", error);
@@ -1013,7 +1011,7 @@ if (!admin.apps.length) {
       return res.status(404).json({ message: "Hospital not found" });
     }
 
-    const booking = hospital.booking.id(bookingId);
+    const booking =  await bookingModel.findById(bookingId);
     if (!booking) {
       return res.status(404).json({ message: "Booking not found" });
     }
@@ -1023,7 +1021,7 @@ if (!admin.apps.length) {
     if (booking_date) booking.booking_date = booking_date;
     if (booking_time) booking.booking_time = booking_time;
 
-    await hospital.save();
+    await booking.save();
 
     // Find the user
     const user = await User.findById(booking.userId);
@@ -1148,11 +1146,6 @@ if (!admin.apps.length) {
 
 
 
-
-
-
-
-
 const getBookingsByUserId = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -1162,36 +1155,19 @@ const getBookingsByUserId = async (req, res) => {
     }
 
     // Find all hospitals that have at least one booking by this user
-    const hospitals = await Hospital.find({
-      "booking.userId": userId,
-    }).lean();
+    const booking = await bookingModel.find({
+    _id: userId,
+    }).lean().sort({ createdAt: -1 });
 
-    if (!hospitals || hospitals.length === 0) {
+    if (!booking || booking.length === 0) {
       return res
         .status(404)
         .json({ message: "No bookings found for this user" });
     }
 
-    // Extract only bookings related to that user
-    const userBookings = hospitals.flatMap((hospital) =>
-      hospital.booking
-        .filter((b) => b.userId.toString() === userId)
-        .map((b) => ({
-          hospitalId: hospital._id,
-          hospitalName: hospital.name,
-          hospitalType: hospital.type,
-          doctor_name: b.doctor_name,
-          specialty: b.specialty,
-          booking_date: b.booking_date,
-          booking_time: b.booking_time,
-          status: b.status,
-          bookingId: b._id,
-        }))
-    );
-
     return res.status(200).json({
       message: "User bookings fetched successfully",
-      data: userBookings,
+      data: booking,
     });
   } catch (error) {
     console.error("Error fetching user bookings:", error);

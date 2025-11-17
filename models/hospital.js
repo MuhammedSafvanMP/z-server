@@ -72,27 +72,6 @@ const workingHoursClinicSchema = new Schema({
   has_break: { type: Boolean, default: false }, // Flag to indicate if clinic has break
 });
 
-// Booking Schema
-const bookingSchema = new Schema({
-  patient_name: { type: String },
-  patient_phone: { type: String },
-  patient_place: { type: String },
-  patient_dob: { type: String },
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  specialty: { type: String },
-  doctor_name: { type: String },
-  booking_date: { type: Date },
-  booking_time: { type: String },
-  status: {
-    type: String,
-    enum: ["pending", "accepted", "declained", "cancel"],
-  },
-});
-
 // Ads Schema
 const adSchema = new Schema({
   title: { type: String }, // Optional
@@ -124,7 +103,6 @@ const hospitalSchema = new Schema({
   working_hours: [workingHoursSchema],
   working_hours_clinic: [workingHoursClinicSchema],
   specialties: [specialtySchema],
-  booking: [bookingSchema],
   ads: [adSchema],
 });
 
