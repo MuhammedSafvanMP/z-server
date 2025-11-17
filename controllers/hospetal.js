@@ -1156,7 +1156,7 @@ const getBookingsByUserId = async (req, res) => {
 
     // Find all hospitals that have at least one booking by this user
     const booking = await bookingModel.find({
-    _id: userId,
+    userId,
     }).lean().sort({ createdAt: -1 });
 
     if (!booking || booking.length === 0) {
