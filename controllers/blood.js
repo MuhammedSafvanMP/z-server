@@ -1,6 +1,7 @@
 const BloodDonor = require("../models/blood");
 const createError = require("http-errors");
 const User = require("../models/user");
+const { getIO } = require("../sockets/socket");
 
 // ✅ Create a Donor
 const createDonor = async (req, res) => {
@@ -132,6 +133,13 @@ const getDonorId = async (req, res) => {
 
   const donor = await BloodDonor.findOne({ userId: id });
   if (!donor) throw new createError.NotFound("Donor not found");
+
+     const io = getIO();
+    io.emit("userdonor", {
+      userId: id,
+       message: `Your booking accepted`,
+    });
+    
 
   return res.status(200).json(donor);
 };

@@ -26,7 +26,7 @@ userRoutes.post("/users/registeration", trycatch(userRegister));
 userRoutes.post("/users/login", trycatch(userLogin));
 userRoutes.post("/users/login/phone", trycatch(login));
 userRoutes.post("/users/password", Auth, trycatch(resetPassword));
-userRoutes.get("/users", Auth, trycatch(userData));
+userRoutes.get("/users",  trycatch(userData));
 userRoutes.get("/users/:id", trycatch(aUserData));
 userRoutes.put("/users/:id", trycatch(uploadProfile));
 userRoutes.get("/hospitals", trycatch(getHospitals));

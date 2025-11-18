@@ -131,6 +131,7 @@ app.use(
       "http://127.0.0.1:5500",
       "https://hosta-hospitals.vercel.app",
       "http://localhost:5173",
+      "http://localhost:7864"
     ],
     credentials: true,
   })

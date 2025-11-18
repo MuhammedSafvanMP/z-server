@@ -4,6 +4,7 @@ const createError = require("http-errors");
 const path = require("path");
 const Hospital = require("../models/hospital");
 const userModel = require("../models/user");
+const { getIO } = require("../sockets/socket");
 
 const storage = multer.diskStorage({});
 const upload = multer({
@@ -93,6 +94,13 @@ const uploadProfile = async (req, res) => {
   }
 
   await user.save();
+
+     const io = getIO();
+    io.emit("profile", {
+      userId: id,
+       message: `Your booking accepted`,
+    });
+    
 
   return res.status(200).json({
     message: "Profile updated successfully",

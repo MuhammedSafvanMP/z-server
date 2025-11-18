@@ -847,10 +847,128 @@ const hospitalDelete = async (req, res) => {
 // };
 
 
-const createBooking = async (
-  req,
-  res
-) => {
+// const createBooking = async (
+//   req,
+//   res
+// ) => {
+//   try {
+//     const { id } = req.params; // hospital id
+//     const { 
+//       userId, 
+//       specialty, 
+//       doctor_name, 
+//       booking_date,  
+//       patient_name,  
+//       patient_phone, 
+//       patient_place,  
+//       patient_dob 
+//     } = req.body;
+
+//     // Validate phone number - remove starting 0 if needed
+//     const cleanedPhone = patient_phone.startsWith("0") ? patient_phone.slice(1) : patient_phone;
+//     if (!/^\d{10}$/.test(cleanedPhone)) {
+//              return res.status(400).json({ message:  "Phone number must be exactly 10 digits" });
+//     }
+
+//     // Validate user
+//     const user = await User.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     // Validate hospital
+//     const hospital = await Hospital.findById(id);
+//     if (!hospital) {
+//       return res.status(404).json({ message: "Hospital not found" });
+//     }
+
+//     // Parse booking date and get day name
+//     const bookingDate = new Date(booking_date);
+//     const bookingDay = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
+    
+//     // Find the doctor and check availability
+//     let isDoctorAvailable = false;
+//     let foundDoctor = null;
+//     let availableDays = [];
+
+//     // Loop through specialties to find the doctor
+//     for (const specialtyItem of hospital.specialties) {
+//       for (const doctor of specialtyItem.doctors) {
+//         if (doctor.name === doctor_name) {
+//           foundDoctor = doctor;
+          
+//           // Check if doctor has consulting schedule
+//           if (doctor.consulting && Array.isArray(doctor.consulting)) {
+//             availableDays = doctor.consulting
+//               .filter(consult => consult.day && consult.sessions && consult.sessions.length > 0)
+//               .map(consult => consult.day);
+            
+//             isDoctorAvailable = availableDays.includes(bookingDay);
+//           }
+//           break;
+//         }
+//       }
+//       if (foundDoctor) break;
+//     }
+
+//     if (!foundDoctor) {
+//       return res.status(404).json({ 
+//         message: `Doctor ${doctor_name} not found in this hospital` 
+//       });
+//     }
+
+//     if (!isDoctorAvailable) {
+//       return res.status(400).json({ 
+//         message: `Doctor ${doctor_name} is not available on ${bookingDay}. Available days: ${availableDays.join(', ')}` 
+//       });
+//     }
+
+//    const booking = await   bookingModel.create({
+//          userId,
+//       specialty,
+//       doctor_name,
+//       booking_date,
+//       status: "pending",
+//       patient_name,  
+//       patient_phone, 
+//       patient_place,  
+//       patient_dob,
+//       hospitalId: id,
+//   })
+
+//   await booking.save()
+
+
+//     // Create notification
+//     await notficationModel.create({
+//       hospitalId: id,
+//       message: `New booking created for Dr. ${doctor_name} on ${bookingDay}.`,
+//     });
+
+//     // Emit socket event
+//     const io = getIO();
+//     io.emit("pushNotification", {
+//       hospitalId: id,
+//       message: `New booking by ${patient_name} for Dr. ${doctor_name}`,
+//     });
+
+//     io.emit("bookingcreate", {
+//       userId: userId,
+//        message: `Your booking accepted`,
+//     });
+
+//     return res.status(201).json({
+//       message: "Booking created successfully",
+//       data: booking, 
+//     });
+//   } catch (error) {
+//     console.error("Error creating booking:", error);
+//     return res.status(500).json({ message: "Server error", error });
+//   }
+// };
+
+
+const createBooking = async (req, res) => {
   try {
     const { id } = req.params; // hospital id
     const { 
@@ -867,7 +985,7 @@ const createBooking = async (
     // Validate phone number - remove starting 0 if needed
     const cleanedPhone = patient_phone.startsWith("0") ? patient_phone.slice(1) : patient_phone;
     if (!/^\d{10}$/.test(cleanedPhone)) {
-             return res.status(400).json({ message:  "Phone number must be exactly 10 digits" });
+      return res.status(400).json({ message: "Phone number must be exactly 10 digits" });
     }
 
     // Validate user
@@ -923,8 +1041,8 @@ const createBooking = async (
       });
     }
 
-   const booking = await   bookingModel.create({
-         userId,
+    const booking = await bookingModel.create({
+      userId,
       specialty,
       doctor_name,
       booking_date,
@@ -934,10 +1052,7 @@ const createBooking = async (
       patient_place,  
       patient_dob,
       hospitalId: id,
-  })
-
-  await booking.save()
-
+    });
 
     // Create notification
     await notficationModel.create({
@@ -945,9 +1060,18 @@ const createBooking = async (
       message: `New booking created for Dr. ${doctor_name} on ${bookingDay}.`,
     });
 
-    // Emit socket event
+    // Emit socket event - FIXED: Include userId in the event data
     const io = getIO();
-    io.emit("pushNotification", {
+    
+  
+       io.emit("bookingCreated", {
+      userId: userId,
+      message: `New booking by ${patient_name} for Dr. ${doctor_name}`,
+    });
+
+
+    // Emit to hospital
+    io.emit("pushNotifications", {
       hospitalId: id,
       message: `New booking by ${patient_name} for Dr. ${doctor_name}`,
     });
@@ -961,7 +1085,6 @@ const createBooking = async (
     return res.status(500).json({ message: "Server error", error });
   }
 };
-
 
 
 
@@ -1129,6 +1252,16 @@ if (!admin.apps.length) {
       });
     } else {
       io.emit("pushNotificationPhone", {
+        userId: booking.userId,
+        message: `Your booking with Dr. ${booking.doctor_name} is ${status}`,
+      });
+
+       io.emit("pushNotification", {
+        userId: booking.userId,
+        message: `Your booking with Dr. ${booking.doctor_name} is ${status}`,
+      });
+
+        io.emit("bookingUpdate", {
         userId: booking.userId,
         message: `Your booking with Dr. ${booking.doctor_name} is ${status}`,
       });

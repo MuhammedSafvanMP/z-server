@@ -164,6 +164,9 @@ const login = async (req, res) => {
 const verifyOtp = async (req, res) => {
   try {
     const { phone, otp, FcmToken } = req.body;
+
+    console.log(req.body, );
+    
     
 
     if (!phone || !otp) {
@@ -211,7 +214,7 @@ const verifyOtp = async (req, res) => {
       _id: user._id,
       phone: user.phone,
       picture: user?.picture,
-      donorId: bloodDonor._id  
+      donorId: bloodDonor ? bloodDonor._id : null 
     };
 
     return res.status(200).json({
@@ -228,19 +231,8 @@ const verifyOtp = async (req, res) => {
 
 // Get user data
 const userData = async (req, res) => {
-  const token = req.cookies.refreshToken;
-  if (!token) {
-    throw new HttpError.Unauthorized("Please login!");
-  }
-  const jwtSecret = process.env.JWT_SECRET;
 
-  if (!jwtSecret) {
-    throw new Error("JWT_SECRET is not defined");
-  }
-
-  const { id } = Jwt.verify(token, jwtSecret);
-
-  const data = await User.findById(id);
+  const data = await User.find();
   return res.status(200).json({
     status: "success",
     data: data,
@@ -417,7 +409,8 @@ const test = async (req, res) => {
     io.emit("pushNotificationPhone", {
       userId: id,
        message: `Your booking accepted`,
-    });    
+    });
+    
     
   } catch (error) {
     console.error("Error saving expo token:", error);

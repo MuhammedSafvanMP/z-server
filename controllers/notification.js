@@ -1,4 +1,5 @@
 const Notification = require("../models/notification");
+const { getIO } = require("../sockets/socket");
 
 const getUserUnread = async (req, res) => {
   try {
@@ -6,6 +7,13 @@ const getUserUnread = async (req, res) => {
       userId: req.params.id,
       userIsRead: false,
     }).sort({ createdAt: -1 });
+
+       const io = getIO();
+        io.emit("notification", {
+          userId: id,
+           message: `Your booking accepted`,
+        });
+        
 
     return res.status(200).json(notifications);
   } catch (error) {
