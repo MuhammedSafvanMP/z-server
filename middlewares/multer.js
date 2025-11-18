@@ -98,7 +98,7 @@ const uploadProfile = async (req, res) => {
      const io = getIO();
     io.emit("profile", {
       userId: id,
-       message: `Your booking accepted`,
+       message: `Profile updated`,
     });
     
 

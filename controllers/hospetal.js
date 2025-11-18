@@ -1063,6 +1063,7 @@ const createBooking = async (req, res) => {
     // Emit socket event - FIXED: Include userId in the event data
     const io = getIO();
     
+  console.log(userId, "usr");
   
        io.emit("bookingCreated", {
       userId: userId,
@@ -1290,7 +1291,8 @@ const getBookingsByUserId = async (req, res) => {
     // Find all hospitals that have at least one booking by this user
     const booking = await bookingModel.find({
     userId,
-    }).lean().sort({ createdAt: -1 });
+    }).populate("hospitalId")
+    .sort({ createdAt: -1 });
 
     if (!booking || booking.length === 0) {
       return res
