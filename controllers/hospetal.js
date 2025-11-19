@@ -1062,8 +1062,6 @@ const createBooking = async (req, res) => {
 
     // Emit socket event - FIXED: Include userId in the event data
     const io = getIO();
-    
-  console.log(userId, "usr");
   
        io.emit("bookingCreated", {
       userId: userId,
@@ -1100,8 +1098,6 @@ if (!admin.apps.length) {
       throw new Error('Missing Firebase environment variables');
     }
 
-    console.log('🔧 Initializing Firebase Admin with project:', projectId);
-
     const serviceAccount = {
       type: 'service_account',
       project_id: projectId,
@@ -1113,7 +1109,6 @@ if (!admin.apps.length) {
       credential: admin.credential.cert(serviceAccount),
     });
 
-    console.log('✅ Firebase Admin initialized successfully');
   } catch (error) {
     console.error('❌ Firebase Admin initialization failed:', error.message);
   }
@@ -1127,7 +1122,6 @@ if (!admin.apps.length) {
     const { hospitalId, bookingId } = req.params;
     const { status, booking_date, booking_time } = req.body;
 
-    console.log('🚀 UPDATE BOOKING API CALLED', { hospitalId, bookingId, status });
 
     // Find hospital and booking
     const hospital = await Hospital.findById(hospitalId);
@@ -1158,13 +1152,10 @@ if (!admin.apps.length) {
       // ✅ Check both possible field names (FcmToken vs fcmToken)
       const userFcmToken = user.FcmToken 
       
-      // For testing, you can hardcode your token:
-      // const userFcmToken = 'eJNMsYnaQoaJShP4rG55Au:APA91bFdq0-YkDRWcHNn1bR2qD2dGPfKQdtsW1XSUc-1N-wHkSpyDhGFJ8VDzn8rXgh6wymfnqWsQP8umgOHc9cuvM61XVID8lzE8SzMI4B05wT1j4bNfY8';
-      
-      console.log(`📱 User FCM Token: ${userFcmToken ? 'Available' : 'Not available'}`);
+  
       
       if (userFcmToken && userFcmToken.length > 0) {
-        console.log(`📱 Sending FCM notification to: ${userFcmToken.substring(0, 50)}...`);
+      
         
         let notificationTitle = '';
         let notificationBody = '';

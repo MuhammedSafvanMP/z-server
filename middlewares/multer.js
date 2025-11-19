@@ -64,18 +64,31 @@ const uploadImage = async (req, res) => {
 
 const uploadProfile = async (req, res) => {
   const { id } = req.params;
-  const { name } = req.body;
+  const { name, phone, email } = req.body;
 
+  console.log(req.body, "hiii");
+  
   const file = await uploadFile(req, res);
 
   const user = await userModel.findById(id);
   if (!user) {
-    throw new createError.NotFound("User not found!");
+    return res.status(404).json({ message: "User not found!" });
   }
 
+
+    // Validate phone number - remove starting 0 if needed
+    const cleanedPhone = phone.startsWith("0") ? phone.slice(1) : phone;
+    if (!/^\d{10}$/.test(cleanedPhone)) {
+      return res.status(404).json({ message: "Phone number must be exactly 10 digits" });
+    }
+
+
+
   // Update name even if no file
-  if (name) {
+  if (name || phone || email) {
     user.name = name;
+    user.phone = phone;
+    user.email = email;
   }
 
   if (file) {

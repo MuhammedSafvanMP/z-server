@@ -46,7 +46,7 @@ const userRegister = async (req, res) => {
   
   const { error } = joiSchema.validate(req.body);
   if (error) {
-     return res.status(400).json(error.details[0].message);
+     return res.status(400).json({message: error.details[0].message});
   }
 
   const existingUser = await User.findOne({
@@ -165,10 +165,7 @@ const verifyOtp = async (req, res) => {
   try {
     const { phone, otp, FcmToken } = req.body;
 
-    console.log(req.body, );
     
-    
-
     if (!phone || !otp) {
       return res.status(400).json({ message: "Phone and OTP are required" });
     }
@@ -241,11 +238,14 @@ const userData = async (req, res) => {
 
 const aUserData = async (req, res) => {
   const user = await User.findById(req.params.id);
+  
 
   if (!user) {
-    throw new HttpError.NotFound("User not found");
+    return res.status(404).json({ message:"User not found"});
   }
 
+  console.log(user, "hiii");
+  
   return res.status(200).json({
     status: "success",
     data: user,
