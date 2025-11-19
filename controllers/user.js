@@ -244,7 +244,6 @@ const aUserData = async (req, res) => {
     return res.status(404).json({ message:"User not found"});
   }
 
-  console.log(user, "hiii");
   
   return res.status(200).json({
     status: "success",
@@ -267,7 +266,6 @@ const resetPassword = async (req, res) => {
 
 // Get details of all hospitals
 const getHospitals = async (req, res) => {
-  console.log("Sample from native");
 
   const hospitals = await Hospital.find().populate({
     path: "reviews.user_id",
