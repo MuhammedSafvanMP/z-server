@@ -117,6 +117,7 @@ var carouselRouter = require('./routes/carousel');
 var commenRouter = require('./routes/commen');
 var labRouter = require('./routes/labs');
 var notificationRouter = require('./routes/notifications');
+var specialitesRouter = require('./routes/specialties');
 const connectToDb = require('./config/dbConnection');
 
 var app = express();
@@ -162,6 +163,8 @@ app.use("/api", notificationRouter);
 app.use("/api", labRouter);
 app.use("/api", carouselRouter);
 app.use("/api", bloodRouter);
+app.use("/api", specialitesRouter);
+
 
 connectToDb();
 

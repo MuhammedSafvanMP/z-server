@@ -63,6 +63,12 @@ const HospitalRegistration = async (req, res) => {
 
   }
 
+    const existingHospitalMobile = await Hospital.findOne({ phone: mobile });
+  if (existingHospitalMobile) {
+     return res.status(409).json({ message: "Phone already exists. Please login." });
+
+  }
+
   // Hash the password before saving it
   const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -113,6 +119,7 @@ const HospitalRegistration = async (req, res) => {
   // Respond with a success message
   return res.status(201).json({
     message: "Hospital registered successfully.",
+    status: 200,
     scheduleType: hasBreakSchedule ? "clinic_with_breaks" : "regular",
   });
 };
@@ -215,6 +222,8 @@ const verifyOtp = async (req, res) => {
   try {
     const { phone, otp } = req.body;
 
+    
+
     if (!phone || !otp) {
       return res.status(400).json({ message: "Phone and OTP are required" });
     }
@@ -230,7 +239,7 @@ const verifyOtp = async (req, res) => {
     if (!storedOtp || storedOtp.toString().trim() !== otp.toString().trim()) {
       return res
         .status(400)
-        .json({ message: `Invalid or expired OTP ${otp},${storedOtp}` });
+        .json({ message: `Invalid or expired OTP` });
     }
 
     // Remove OTP from storage
@@ -452,6 +461,9 @@ const getHospitalDetails = async (req, res) => {
 
 //Update hospital details
 const updateHospitalDetails = async (req, res) => {
+
+  console.log(req.body, "hiiis");
+  
   const { id } = req.params;
   const {
     name,
@@ -472,11 +484,11 @@ const updateHospitalDetails = async (req, res) => {
   if (!hospital) {
     throw new createError.NotFound("Hospital not found. Wrong input");
   }
-  if (currentPassword) {
-    await bcrypt.compare(currentPassword, hospital.password).catch(() => {
-      throw new createError.BadRequest("Current password is wrong");
-    });
-  }
+  // if (currentPassword) {
+  //   await bcrypt.compare(currentPassword, hospital.password).catch(() => {
+  //     throw new createError.BadRequest("Current password is wrong");
+  //   });
+  // }
 
   // Update the hospital fields
   if (newPassword) {
@@ -508,6 +520,8 @@ const updateHospitalDetails = async (req, res) => {
 
 // Add a new specialty
 const addSpecialty = async (req, res) => {
+  console.log(req.body, "hhii");
+  
   const { department_info, description, doctors, name, phone } = req.body;
   const { id } = req.params;
 
@@ -527,6 +541,11 @@ const addSpecialty = async (req, res) => {
   if (isExist) {
     return res.status(404).json({ message: "Specialty is already exist!" });    
   }
+
+    const cleanedPhone = phone.startsWith("0") ? phone.slice(1) : phone;
+    if (!/^\d{10}$/.test(cleanedPhone)) {
+        return res.status(404).json({ message: "Phone number must be exactly 10 digits" });
+    }
 
   hospital.specialties.push({
     name: name,
@@ -548,18 +567,32 @@ const addSpecialty = async (req, res) => {
 // Update Specialty
 const updateSpecialty = async (req, res) => {
   const { department_info, description, doctors, name, phone } = req.body;
-  const { id } = req.params;
+
+  
+  const { id , specialityId } = req.params;
   const hospital = await Hospital.findById(id);
+
+  
   if (!hospital) {
     return res.status(404).json({ message: "Hospital not found. Wrong input" });    
   }
+  
   // Check the spectilty
-  const specialty = hospital.specialties.find(
-    (element) => element.name === name
-  );
+ const specialty = hospital.specialties.find(
+  (element) => element._id.toString() === specialityId
+);
+
+  
   if (!specialty) {
     return res.status(404).json({ message: "Specialty not found."});
   }
+  
+
+    const cleanedPhone = phone.startsWith("0") ? phone.slice(1) : phone;
+    if (!/^\d{10}$/.test(cleanedPhone)) {
+        return res.status(404).json({ message: "Phone number must be exactly 10 digits" });
+    }
+    
 
   // Update the fields
   if (department_info !== undefined) {
@@ -589,19 +622,18 @@ const updateSpecialty = async (req, res) => {
 
 // Delete a specialty
 const deleteSpecialty = async (req, res) => {
-  const { name } = req.query;
-  const { id } = req.params;
+  const { id , specialityId } = req.params;
 
   const hospital = await Hospital.findById(id);
   if (!hospital) {
         return res.status(404).json({ message: "Hospital not found. Wrong input"});
   }
 
-  // Check the spectilty
-  const index = hospital.specialties.findIndex(
-    (element) =>
-      element.name?.trim().toLowerCase() === name.trim().toLowerCase()
-  );
+
+   const index = hospital.specialties.findIndex(
+  (element) => element._id.toString() === specialityId
+);
+
   if (index === -1) {
         return res.status(404).json({ message: "Specialty not found."});
 
@@ -621,12 +653,15 @@ const deleteSpecialty = async (req, res) => {
 const addDoctor = async (req, res) => {
   const { id } = req.params;
   const { name, specialty, consulting, qualification } = req.body;
+  
   const data = { name, consulting, qualification };
 
   const hospital = await Hospital.findById(id);
+ 
+  
   hospital?.specialties
     .filter((Specialty) => {
-      return Specialty.name === specialty;
+      return Specialty.name.toLocaleLowerCase() == specialty.toLocaleLowerCase();
     })[0]
     .doctors.push(data);
   await hospital?.save();
@@ -638,18 +673,19 @@ const addDoctor = async (req, res) => {
 
 // Update Doctor
 const updateDoctor = async (req, res) => {
-  const { id } = req.params;
-  const { _id, name, specialty, consulting, qualification } = req.body;
+  const { hospitalId, specialtyId, doctorId } = req.params;
+  
+  const { _id, name, specialty, consulting, qualification, bookingOpen } = req.body;
   const data = { name, consulting, qualification };
 
-  const hospital = await Hospital.findById(id);
+  const hospital = await Hospital.findById(hospitalId);
 
   if (!hospital) {
     return res.status(404).json({ message: "Hospital not found" });
   }
 
   const targetSpecialty = hospital.specialties.find(
-    (s) => s.name === specialty
+    (s) =>  s._id.toString() == specialtyId,
   );
 
   if (!targetSpecialty) {
@@ -657,7 +693,7 @@ const updateDoctor = async (req, res) => {
 
   }
 
-  const targetDoctor = targetSpecialty.doctors.find((d) => d._id == _id);
+  const targetDoctor = targetSpecialty.doctors.find((d) => d._id.toString() == doctorId);
 
   if (!targetDoctor) {
  
@@ -665,8 +701,23 @@ const updateDoctor = async (req, res) => {
 
   }
 
+ if (data.name && data.name !== "") {
   targetDoctor.name = data.name;
+}
+
+if (Array.isArray(data.consulting) && data.consulting.length > 0) {
   targetDoctor.consulting = data.consulting;
+}
+
+if (data.qualification && data.qualification !== "") {
+  targetDoctor.qualification = data.qualification;
+}
+
+if (bookingOpen !== undefined) {
+  targetDoctor.bookingOpen = bookingOpen;
+}
+
+
 
   await hospital.save();
 
@@ -678,32 +729,50 @@ const updateDoctor = async (req, res) => {
 
 // Delete Doctor
 const deleteDoctor = async (req, res) => {
-  const { hospital_id, doctor_id } = req.params;
-  const { specialty_name } = req.query;
+  try {
+    const { hospitalId, specialtyId, doctorId } = req.params;
 
-  const hospital = await Hospital.findById(hospital_id);
-  if (!hospital) {
-              return res.status(400).json({ message: "Hospital not found!" });
-
-  }
-
-  const targetSpecialty = hospital.specialties.find(
-    (s) => s.name?.trim().toLowerCase() === specialty_name.trim().toLowerCase()
-  );
-
-  targetSpecialty?.doctors.forEach((doctor, index) => {
-    if (doctor._id.toString() == doctor_id) {
-      targetSpecialty.doctors.splice(index, 1);
+    // Find Hospital
+    const hospital = await Hospital.findById(hospitalId);
+    if (!hospital) {
+      return res.status(400).json({ message: "Hospital not found!" });
     }
-  });
 
-  await hospital.save();
+    // Find Specialty
+    const targetSpecialty = hospital.specialties.find(
+      (s) => s._id.toString() === specialtyId
+    );
 
-  return res.status(200).json({
-    message: `Doctor in ${specialty_name} deleted successfully`,
-    data: hospital.specialties,
-  });
+    if (!targetSpecialty) {
+      return res.status(400).json({ message: "Specialty not found!" });
+    }
+
+    // Find doctor index
+    const doctorIndex = targetSpecialty.doctors.findIndex(
+      (d) => d._id.toString() === doctorId
+    );
+
+    if (doctorIndex === -1) {
+      return res.status(400).json({ message: "Doctor not found!" });
+    }
+
+    // Remove doctor
+    targetSpecialty.doctors.splice(doctorIndex, 1);
+
+    // Save hospital
+    await hospital.save();
+
+    return res.status(200).json({
+      message: `Doctor in ${targetSpecialty.name} deleted successfully`,
+      data: hospital.specialties,
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
 };
+
 
 const hospitalDelete = async (req, res) => {
   const { id } = req.params;
@@ -1238,7 +1307,7 @@ if (!admin.apps.length) {
     // Socket.IO for real-time updates
     const io = getIO();
     if (status === "cancel" || status === "cancelled") {
-      io.emit("pushNotificationPhone", {
+      io.emit("pushNotificationWeb", {
         hospitalId: hospitalId,
         message: `The booking with Dr. ${booking.doctor_name} has been ${status}.`,
       });
@@ -1269,6 +1338,40 @@ if (!admin.apps.length) {
   }
 };
 
+
+
+
+
+const getBookingsByHospitalId = async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+
+    if (!mongoose.Types.ObjectId.isValid(hospitalId)) {
+      return res.status(400).json({ message: "Invalid hospital ID" });
+    }
+
+    // Find all hospitals that have at least one booking by this user
+    const booking = await bookingModel.find({
+      hospitalId: hospitalId,
+    }).populate("userId")
+    .sort({ createdAt: -1 });
+
+    if (!booking || booking.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No bookings found for this hospital" });
+    }
+
+    return res.status(200).json({
+      message: "Hospital bookings fetched successfully",
+      data: booking,
+    });
+  } catch (error) {
+    console.error("Error fetching user bookings:", error);
+    return res.status(500).json({ message: "Server error", error });
+  }
+};
 
 
 const getBookingsByUserId = async (req, res) => {
@@ -1345,6 +1448,7 @@ module.exports = {
   getBookingsByUserId,
   getHospitalDataSearch,
   getHospitalDoctors,
-  getSingleHospital
+  getSingleHospital,
+  getBookingsByHospitalId
 };
 

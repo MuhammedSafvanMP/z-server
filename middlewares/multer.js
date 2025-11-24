@@ -139,6 +139,7 @@ const createError = require("http-errors");
 const path = require("path");
 const Hospital = require("../models/hospital");
 const userModel = require("../models/user");
+const specialityModle = require("../models/specialties")
 const { getIO } = require("../sockets/socket");
 
 const storage = multer.diskStorage({});
@@ -303,9 +304,146 @@ const uploadProfile = async (req, res) => {
   }
 };
 
+const addASpeciality = async (req, res) => {
+  try {
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({
+        message: "Name is required"
+      });
+    }
+
+    // Check if speciality already exists
+    const existing = await specialityModle.findOne({ name });
+
+    if (existing) {
+      return res.status(400).json({
+        message: "This speciality already exists"
+      });
+    }
+
+    // File handling (optional)
+    let file = null;
+    if (req.headers['content-type']?.includes('multipart/form-data')) {
+      const reqWithFile = await uploadFile(req, res);
+      file = reqWithFile.file;
+    }
+
+    let picture = null;
+
+    // Upload image if provided
+    if (file) {
+      const normalizedPath = path.normalize(file.path);
+      const result = await cloudinary.uploader.upload(normalizedPath);
+
+      picture = {
+        imageUrl: result.secure_url,
+        public_id: result.public_id,
+      };
+    }
+
+    // Create speciality
+    await specialityModle.create({
+      name,
+      picture,
+    });
+
+    return res.status(200).json({
+      message: "Speciality created successfully"
+    });
+
+  } catch (error) {
+    console.error("❌ Error in addASpeciality:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+
+
+const uploadSpeciality = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+
+    // Handle file upload if present
+    let file = null;
+    if (req.headers['content-type']?.includes('multipart/form-data')) {
+      const reqWithFile = await uploadFile(req, res);
+      file = reqWithFile.file;
+      
+    }
+
+    const speciality = await specialityModle.findById(id);
+    if (!speciality) {
+      return res.status(404).json({ message: "Speciality not found!" });
+    }
+
+    // Extract data from request - handle both JSON and form-data
+    const { name } = req.body;
+
+
+    // Validate required fields
+    if (!name) {
+      return res.status(400).json({ 
+        message: "Name is required " 
+      });
+    }
+
+
+    // Update user fields
+    speciality.name = name;
+  
+
+    // Handle image upload if file exists
+    if (file) {
+      console.log("📸 Processing image upload...");
+      
+      // Delete old image if exists
+      if (speciality.picture?.public_id) {
+        try {
+          await cloudinary.uploader.destroy(speciality.picture.public_id);
+          console.log("🗑️ Old image deleted from Cloudinary");
+        } catch (cloudinaryError) {
+          console.log("⚠️ Could not delete old image from Cloudinary:", cloudinaryError);
+        }
+      }
+
+      const normalizedPath = path.normalize(file.path);
+      const result = await cloudinary.uploader.upload(normalizedPath);
+
+      speciality.picture = {
+        imageUrl: result.secure_url,
+        public_id: result.public_id,
+      };
+      console.log("✅ New image uploaded to Cloudinary");
+    }
+
+    await speciality.save();
+
+
+
+    return res.status(200).json({
+      message: "Speciality updated successfully",
+    });
+
+  } catch (error) {
+    console.error("❌ Error in uploadProfile:", error);
+    return res.status(500).json({ 
+      message: "Internal server error",
+      error: error.message 
+    });
+  }
+};
+
 module.exports = {
   upload,
   uploadFile,
   uploadImage,
-  uploadProfile
+  uploadProfile,
+  uploadSpeciality,
+  addASpeciality
 };

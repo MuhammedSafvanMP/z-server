@@ -21,7 +21,7 @@ const {
   getHospitalDataSearch,
   getHospitalDoctors,
   getSingleHospital,
-  
+  getBookingsByHospitalId
 
 } = require("../controllers/hospetal");
 const { uploadImage } = require("../middlewares/multer");
@@ -63,38 +63,34 @@ hospitalRoutes.get(
 
 hospitalRoutes.put(
   "/hospital/details/:id",
-  Authenticator,
   trycatch(updateHospitalDetails)
 );
 hospitalRoutes.post(
   "/hospital/specialty/:id",
-  Authenticator,
   trycatch(addSpecialty)
 );
 hospitalRoutes.put(
-  "/hospital/specialty/:id",
-  Authenticator,
+  "/hospital/:id/specialty/:specialityId",
   trycatch(updateSpecialty)
 );
 hospitalRoutes.delete(
-  "/hospital/specialty/:id",
-  Authenticator,
+  "/hospital/:id/specialty/:specialityId",
   trycatch(deleteSpecialty)
 );
+
+
 hospitalRoutes.post(
   "/hospital/profileImage/:id",
   Authenticator,
   trycatch(uploadImage)
 );
-hospitalRoutes.post("/hospital/doctor/:id", Authenticator, trycatch(addDoctor));
+hospitalRoutes.post("/hospital/doctor/:id",  trycatch(addDoctor));
 hospitalRoutes.put(
-  "/hospital/doctor/:id",
-  Authenticator,
+  "/hospital/:hospitalId/specialty/:specialtyId/doctors/:doctorId",
   trycatch(updateDoctor)
 );
 hospitalRoutes.delete(
-  "/hospital/doctor/:hospital_id/:doctor_id",
-  Authenticator,
+  "/hospital/:hospitalId/specialty/:specialtyId/doctors/:doctorId",
   trycatch(deleteDoctor)
 );
 hospitalRoutes.delete("/hospital/:id", Authenticator, trycatch(hospitalDelete));
@@ -102,5 +98,8 @@ hospitalRoutes.delete("/hospital/:id", Authenticator, trycatch(hospitalDelete));
 hospitalRoutes.post("/bookings/:id", trycatch(createBooking)); 
 hospitalRoutes.put("/bookings/:bookingId/hospital/:hospitalId", trycatch(updateBooking));
 hospitalRoutes.get("/bookings/user/:userId", trycatch(getBookingsByUserId));
+hospitalRoutes.get("/bookings/hospital/:hospitalId", trycatch(getBookingsByHospitalId));
+
+
 
 module.exports = hospitalRoutes;

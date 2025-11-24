@@ -104,7 +104,7 @@ const hospitalSchema = new Schema({
   working_hours_clinic: [workingHoursClinicSchema],
   specialties: [specialtySchema],
   ads: [adSchema],
-});
+}, {timestamps: true});
 
 // Create the model
 const Hospital = mongoose.model("Hospital", hospitalSchema);
