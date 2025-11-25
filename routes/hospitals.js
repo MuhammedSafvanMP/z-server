@@ -24,7 +24,7 @@ const {
   getBookingsByHospitalId
 
 } = require("../controllers/hospetal");
-const { uploadImage } = require("../middlewares/multer");
+const { uploadImage, upload } = require("../middlewares/multer");
 const Authenticator = require("../middlewares/authentication");
 
 const hospitalRoutes = Express.Router();
@@ -62,7 +62,7 @@ hospitalRoutes.get(
 
 
 hospitalRoutes.put(
-  "/hospital/details/:id",
+  "/hospital/details/:id", upload.single('image'),
   trycatch(updateHospitalDetails)
 );
 hospitalRoutes.post(

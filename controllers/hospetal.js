@@ -12,6 +12,7 @@ const  admin = require("firebase-admin");
 const { getIO } = require("../sockets/socket");
 
 const twilio = require("twilio");
+const { uploadFile, uploadProfile } = require("../middlewares/multer");
 require("dotenv").config();
 
 const otpStorage = new Map();
@@ -460,63 +461,244 @@ const getHospitalDetails = async (req, res) => {
 };
 
 //Update hospital details
-const updateHospitalDetails = async (req, res) => {
+// const updateHospitalDetails = async (req, res) => {
 
-  console.log(req.body, "hiiis");
+//   console.log(req.body, "hiiis");
+
+//       console.log('Request file:', req.file);
+//     console.log('Request files:', req.files);
+
+
+//       const reqWithFile = await uploadFile(req, res);
+//       const file = reqWithFile.file;
+    
   
-  const { id } = req.params;
-  const {
-    name,
-    email,
-    mobile,
-    address,
-    latitude,
-    longitude,
-    workingHours,
-    emergencyContact,
-    about,
-    image,
-    currentPassword,
-    newPassword,
-    workingHoursClinic,
-  } = req.body;
-  const hospital = await Hospital.findById(id);
-  if (!hospital) {
-    throw new createError.NotFound("Hospital not found. Wrong input");
+//   const { id } = req.params;
+//   const {
+//     name,
+//     email,
+//     mobile,
+//     address,
+//     latitude,
+//     longitude,
+//     workingHours,
+//     emergencyContact,
+//     about,
+//     image,
+//     currentPassword,
+//     newPassword,
+//     workingHoursClinic,
+//   } = req.body;
+//   const hospital = await Hospital.findById(id);
+//   if (!hospital) {
+//     throw new createError.NotFound("Hospital not found. Wrong input");
+//   }
+//   // if (currentPassword) {
+//   //   await bcrypt.compare(currentPassword, hospital.password).catch(() => {
+//   //     throw new createError.BadRequest("Current password is wrong");
+//   //   });
+//   // }
+
+//   // Update the hospital fields
+//   if (newPassword) {
+//     const Password = await bcrypt.hash(newPassword, 10);
+//     hospital.password = Password;
+//   }
+//   hospital.name = name || hospital.name;
+//   hospital.email = email || hospital.email;
+//   hospital.phone = mobile || hospital.phone;
+//   hospital.address = address || hospital.address;
+//   hospital.latitude = latitude || hospital.latitude;
+//   hospital.longitude = longitude || hospital.longitude;
+//   hospital.working_hours = workingHours || hospital.working_hours;
+//   hospital.working_hours_clinic =
+//     workingHoursClinic || hospital.working_hours_clinic;
+
+//   hospital.emergencyContact = emergencyContact || hospital.emergencyContact;
+//   hospital.about = about || hospital.about;
+//   hospital.image = image || hospital.image;
+
+//   // Save the updated hospital data
+//   await hospital.save();
+
+//   return res.status(200).json({
+//     status: "Success",
+//     message: "Hospital details updated successfully",
+//   });
+// };
+
+
+
+
+// const updateHospitalDetails = async (req, res) => {
+//   try {
+//     console.log('Request body:', req.body);
+//     console.log('Request file:', req.file);
+
+//     const { id } = req.params;
+
+
+//      let file = null;
+//       const reqWithFile = await uploadProfile(req, res);
+//       file = reqWithFile.file;
+      
+  
+    
+//     // Check if req.body exists and has data
+//     if (!req.body || Object.keys(req.body).length === 0) {
+//       return res.status(400).json({ 
+//         message: 'No data received in request body' 
+//       });
+//     }
+
+//     const {
+//       name,
+//       email,
+//       phone, // Change from 'mobile' to match frontend
+//       address,
+//       latitude,
+//       longitude,
+//       working_hours, // Change from 'workingHours' to match frontend
+//       emergencyContact,
+//       about,
+//       type, // Add this field
+//       working_hours_clinic, // Change from 'workingHoursClinic' to match frontend
+//       hasBreakSchedule
+//     } = req.body;
+
+//     const hospital = await Hospital.findById(id);
+//     if (!hospital) {
+//       return res.status(404).json({ message: "Hospital not found" });
+//     }
+
+//     // Parse JSON strings from FormData
+//     let workingHoursParsed = [];
+//     let workingHoursClinicParsed = [];
+
+//     try {
+//       workingHoursParsed = working_hours ? JSON.parse(working_hours) : [];
+//       workingHoursClinicParsed = working_hours_clinic ? JSON.parse(working_hours_clinic) : [];
+//     } catch (parseError) {
+//       console.error('Error parsing JSON fields:', parseError);
+//       return res.status(400).json({ message: 'Invalid JSON in working hours fields' });
+//     }
+
+//     // Update hospital fields
+//     hospital.name = name || hospital.name;
+//     hospital.email = email || hospital.email;
+//     hospital.phone = phone || hospital.phone; // Use 'phone' instead of 'mobile'
+//     hospital.address = address || hospital.address;
+//     hospital.latitude = latitude || hospital.latitude;
+//     hospital.longitude = longitude || hospital.longitude;
+//     hospital.type = type || hospital.type; // Add type field
+//     hospital.working_hours = workingHoursParsed.length > 0 ? workingHoursParsed : hospital.working_hours;
+//     hospital.working_hours_clinic = workingHoursClinicParsed.length > 0 ? workingHoursClinicParsed : hospital.working_hours_clinic;
+//     hospital.emergencyContact = emergencyContact || hospital.emergencyContact;
+//     hospital.about = about || hospital.about;
+
+//      if (file) {
+//           console.log("📸 Processing image upload...");
+          
+//           // Delete old image if exists
+//           if (hospital?.image?.public_id) {
+//             try {
+//               await cloudinary.uploader.destroy(user.picture.public_id);
+//               console.log("🗑️ Old image deleted from Cloudinary");
+//             } catch (cloudinaryError) {
+//               console.log("⚠️ Could not delete old image from Cloudinary:", cloudinaryError);
+//             }
+//           }
+    
+//           const normalizedPath = path.normalize(file.path);
+//           const result = await cloudinary.uploader.upload(normalizedPath);
+    
+//           hospital.image = {
+//             imageUrl: result.secure_url,
+//             public_id: result.public_id,
+//           };
+//           console.log("✅ New image uploaded to Cloudinary");
+//         }
+
+  
+
+//     await hospital.save();
+
+//     return res.status(200).json({
+//       status: "Success",
+//       message: "Hospital details updated successfully",
+//       data: hospital
+//     });
+
+//   } catch (error) {
+//     console.error('Update error:', error);
+//     return res.status(500).json({ 
+//       message: 'Server error', 
+//       error: error.message 
+//     });
+//   }
+// };
+
+const updateHospitalDetails = async (req, res) => {
+  try {
+ 
+    const { id } = req.params;
+
+    // file from multer
+    let file = req.file || null;
+
+    if (!req.body || Object.keys(req.body).length === 0) {
+      return res.status(400).json({ message: "No data received" });
+    }
+
+    const hospital = await Hospital.findById(id);
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+
+    // parse JSON values
+    let workingHoursParsed = JSON.parse(req.body.working_hours || "[]");
+    let workingHoursClinicParsed = JSON.parse(req.body.working_hours_clinic || "[]");
+
+    // update hospital info
+    hospital.name = req.body.name || hospital.name;
+    hospital.email = req.body.email || hospital.email;
+    hospital.phone = req.body.phone || hospital.phone;
+    hospital.address = req.body.address || hospital.address;
+    hospital.latitude = req.body.latitude || hospital.latitude;
+    hospital.longitude = req.body.longitude || hospital.longitude;
+    hospital.type = req.body.type || hospital.type;
+    hospital.working_hours = workingHoursParsed.length ? workingHoursParsed : hospital.working_hours;
+    hospital.working_hours_clinic = workingHoursClinicParsed.length ? workingHoursClinicParsed : hospital.working_hours_clinic;
+    hospital.emergencyContact = req.body.emergencyContact || hospital.emergencyContact;
+    hospital.about = req.body.about || hospital.about;
+
+    // image upload
+    if (file) {
+      const result = await cloudinary.uploader.upload(file.path);
+      hospital.image = {
+        imageUrl: result.secure_url,
+        public_id: result.public_id,
+      };
+    }
+
+    await hospital.save();
+
+    return res.status(200).json({
+      status: "Success",
+      message: "Hospital updated successfully",
+      data: hospital,
+    });
+
+  } catch (error) {
+    console.error("Update error:", error);
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
   }
-  // if (currentPassword) {
-  //   await bcrypt.compare(currentPassword, hospital.password).catch(() => {
-  //     throw new createError.BadRequest("Current password is wrong");
-  //   });
-  // }
-
-  // Update the hospital fields
-  if (newPassword) {
-    const Password = await bcrypt.hash(newPassword, 10);
-    hospital.password = Password;
-  }
-  hospital.name = name || hospital.name;
-  hospital.email = email || hospital.email;
-  hospital.phone = mobile || hospital.phone;
-  hospital.address = address || hospital.address;
-  hospital.latitude = latitude || hospital.latitude;
-  hospital.longitude = longitude || hospital.longitude;
-  hospital.working_hours = workingHours || hospital.working_hours;
-  hospital.working_hours_clinic =
-    workingHoursClinic || hospital.working_hours_clinic;
-
-  hospital.emergencyContact = emergencyContact || hospital.emergencyContact;
-  hospital.about = about || hospital.about;
-  hospital.image = image || hospital.image;
-
-  // Save the updated hospital data
-  await hospital.save();
-
-  return res.status(200).json({
-    status: "Success",
-    message: "Hospital details updated successfully",
-  });
 };
+
+
 
 // Add a new specialty
 const addSpecialty = async (req, res) => {
