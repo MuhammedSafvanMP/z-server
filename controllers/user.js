@@ -114,30 +114,32 @@ const userLogin = async (req, res) => {
 };
 
 const login = async (req, res) => {
-  let phone = req.body.phone;
+  // let phone = req.body.phone;
 
   try {
-    // Check if customer exists
-    const user = await User.findOne({ phone: String(phone).trim() });
+    // // Check if customer exists
+    // const user = await User.findOne({ phone: String(phone).trim() });
 
-    if (!user) {
+    // if (!user) {
+    //   return res.status(400).json({ message: "Phone number not registered!" });
+    // }
+
+    let phone = req.body.phone;   // ex: "+919567900329"
+    let phoneChecking;
+
+// Remove all non-numeric characters
+phoneChecking = phone.replace(/\D/g, "");
+
+// Always take last 10 digits
+phoneChecking = phone.slice(-10);
+
+
+// Now search in DB
+const user = await User.findOne({ phone: phoneChecking });
+
+if (!user) {
       return res.status(400).json({ message: "Phone number not registered!" });
     }
-
-
-
-    // Ensure +91 prefix with space
-    if (!phone.startsWith("+91")) {
-      phone = "+91 " + phone.replace(/^\+91\s*/, "").trim();
-    }
-
-    if(phone == "+91 9400517720"){
-      otpStorage.set(phone, 123456); 
-
-      return res
-        .status(200)
-        .json({ message: `OTP sent successfully ${123456}`, status: 200 });
-    } 
 
     // Generate OTP (6-digit random number)
     const otp = Math.floor(100000 + Math.random() * 900000);
@@ -170,6 +172,9 @@ const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "Phone and OTP are required" });
     }
 
+    console.log(phone, otp, "hiiii");
+    
+
     // Ensure +91 prefix
     const formattedPhone = phone.startsWith("+91")
       ? phone
@@ -187,10 +192,22 @@ const verifyOtp = async (req, res) => {
     // Remove OTP from storage
     otpStorage.delete(formattedPhone);
 
+
+    let phoneChecking;
+
+// Remove all non-numeric characters
+phoneChecking = phone.replace(/\D/g, "");
+
+// Always take last 10 digits
+phoneChecking = phone.slice(-10);
+
+
+// Now search in DB
+const user = await User.findOne({ phone: phoneChecking });
+
     // Find customer
-    const user = await User.findOne({ phone });
     if (!user) {
-      return res.status(400).json({ message: "Customer not found" });
+      return res.status(400).json({ message: "User not found" });
     }
 
     user.FcmToken = FcmToken;
