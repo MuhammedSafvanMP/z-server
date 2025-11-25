@@ -113,135 +113,256 @@ const userLogin = async (req, res) => {
   });
 };
 
+// const login = async (req, res) => {
+
+
+//   // let phone = req.body.phone;
+
+//   try {
+//     // // Check if customer exists
+//     // const user = await User.findOne({ phone: String(phone).trim() });
+
+//     // if (!user) {
+//     //   return res.status(400).json({ message: "Phone number not registered!" });
+//     // }
+
+//     let phone = req.body.phone;   // ex: "+919567900329"
+//     let phoneChecking;
+
+// // Remove all non-numeric characters
+// phoneChecking = phone.replace(/\D/g, "");
+
+// // Always take last 10 digits
+// phoneChecking = phone.slice(-10);
+
+
+// // Now search in DB
+// const user = await User.findOne({ phone: phoneChecking });
+
+// if (!user) {
+//       return res.status(400).json({ message: "Phone number not registered!" });
+//     }
+
+//     // Generate OTP (6-digit random number)
+//     const otp = Math.floor(100000 + Math.random() * 900000);
+//     otpStorage.set(phone, otp); // Store OTP temporarily
+
+//     // Send OTP via Twilio
+//     await client.messages.create({
+//       body: `Your verification code is: ${otp}`,
+//       from: process.env.TWLIO_NUMBER,
+//       to: phone,
+//     });
+
+//     return res
+//       .status(200)
+//       .json({ message: `OTP sent successfully ${otp}`, status: 200 });
+//   } catch (error) {
+//     console.error("Twilio Error:", error);
+//     return res
+//       .status(500)
+//       .json({ message: "Failed to send OTP", error: error, status: 500 });
+//   }
+// };
+
+// const verifyOtp = async (req, res) => {
+//   try {
+//     const { phone, otp, FcmToken } = req.body;
+
+    
+//     if (!phone || !otp) {
+//       return res.status(400).json({ message: "Phone and OTP are required" });
+//     }
+
+//     console.log(phone, otp, "hiiii");
+    
+
+//     // Ensure +91 prefix
+//     const formattedPhone = phone.startsWith("+91")
+//       ? phone
+//       : "+91 " + phone.replace(/^\+91\s*/, "").trim();
+
+//     // Validate OTP
+//     const storedOtp = otpStorage.get(formattedPhone);
+
+//     if (!storedOtp || storedOtp.toString().trim() !== otp.toString().trim()) {
+//       return res
+//         .status(400)
+//         .json({ message: `Invalid or expired OTP ${otp},${storedOtp}` });
+//     }
+
+//     // Remove OTP from storage
+//     otpStorage.delete(formattedPhone);
+
+
+//     let phoneChecking;
+
+// // Remove all non-numeric characters
+// phoneChecking = phone.replace(/\D/g, "");
+
+// // Always take last 10 digits
+// phoneChecking = phone.slice(-10);
+
+
+// // Now search in DB
+// const user = await User.findOne({ phone: phoneChecking });
+
+//     // Find customer
+//     if (!user) {
+//       return res.status(400).json({ message: "User not found" });
+//     }
+
+//     user.FcmToken = FcmToken;
+//     await user.save();
+
+//     const bloodDonor = await Blood.findOne({userId:  user._id});    
+
+//     // Generate JWT
+//     const token = Jwt.sign(
+//       { email: user.email, id: user._id },
+//       process.env.JWT_SECRET || "myjwtsecretkey",
+//       { expiresIn: "1h" }
+//     );
+
+//     const userDetails = {
+//       name: user.name,
+//       email: user.email,
+//       _id: user._id,
+//       phone: user.phone,
+//       picture: user?.picture,
+//       donorId: bloodDonor ? bloodDonor._id : null 
+//     };
+
+//     return res.status(200).json({
+//       message: "OTP verified successfully",
+//       token,
+//       userDetails,
+//       status: 200,
+//     });
+//   } catch (err) {
+//     console.error("Verify OTP error:", err);
+//     return res.status(500).json({ error: "Server error, please try again" });
+//   }
+// };
+
+
+// TEST NUMBER FOR APPLE REVIEW
+const APPLE_TEST_NUMBER = "9999999999";
+const APPLE_TEST_OTP = "123456";
+
 const login = async (req, res) => {
-  // let phone = req.body.phone;
-
   try {
-    // // Check if customer exists
-    // const user = await User.findOne({ phone: String(phone).trim() });
+    let phone = req.body.phone || "";
+    
+    // Extract digits only
+    let numericPhone = phone.replace(/\D/g, ""); 
 
-    // if (!user) {
-    //   return res.status(400).json({ message: "Phone number not registered!" });
-    // }
+    // Always take last 10 digits (real mobile number)
+    numericPhone = numericPhone.slice(-10);
 
-    let phone = req.body.phone;   // ex: "+919567900329"
-    let phoneChecking;
+    if (!numericPhone) {
+      return res.status(400).json({ message: "Invalid phone number" });
+    }
 
-// Remove all non-numeric characters
-phoneChecking = phone.replace(/\D/g, "");
+    // Apple Test Account -> Bypass SMS
+    if (numericPhone === APPLE_TEST_NUMBER) {
+      otpStorage.set(numericPhone, APPLE_TEST_OTP);
+      return res.status(200).json({
+        message: `OTP sent successfully (TEST ACCOUNT)`,
+        otp: APPLE_TEST_OTP,
+        status: 200,
+      });
+    }
 
-// Always take last 10 digits
-phoneChecking = phone.slice(-10);
-
-
-// Now search in DB
-const user = await User.findOne({ phone: phoneChecking });
-
-if (!user) {
+    // Check if user exists
+    const user = await User.findOne({ phone: numericPhone });
+    if (!user) {
       return res.status(400).json({ message: "Phone number not registered!" });
     }
 
-    // Generate OTP (6-digit random number)
+    // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000);
-    otpStorage.set(phone, otp); // Store OTP temporarily
+    otpStorage.set(numericPhone, otp);
 
-    // Send OTP via Twilio
+    // Send OTP through Twilio
     await client.messages.create({
       body: `Your verification code is: ${otp}`,
       from: process.env.TWLIO_NUMBER,
-      to: phone,
+      to: "+91" + numericPhone,
     });
 
-    return res
-      .status(200)
-      .json({ message: `OTP sent successfully ${otp}`, status: 200 });
+    return res.status(200).json({
+      message: `OTP sent successfully`,
+      status: 200,
+    });
+
   } catch (error) {
     console.error("Twilio Error:", error);
-    return res
-      .status(500)
-      .json({ message: "Failed to send OTP", error: error, status: 500 });
+    return res.status(500).json({ message: "Failed to send OTP", error });
   }
 };
+
+
 
 const verifyOtp = async (req, res) => {
   try {
     const { phone, otp, FcmToken } = req.body;
 
-    
     if (!phone || !otp) {
       return res.status(400).json({ message: "Phone and OTP are required" });
     }
 
-    console.log(phone, otp, "hiiii");
-    
+    // Normalize phone number
+    let numericPhone = phone.replace(/\D/g, "").slice(-10);
 
-    // Ensure +91 prefix
-    const formattedPhone = phone.startsWith("+91")
-      ? phone
-      : "+91 " + phone.replace(/^\+91\s*/, "").trim();
+    // VALIDATE OTP
+    const storedOtp = otpStorage.get(numericPhone);
 
-    // Validate OTP
-    const storedOtp = otpStorage.get(formattedPhone);
-
-    if (!storedOtp || storedOtp.toString().trim() !== otp.toString().trim()) {
-      return res
-        .status(400)
-        .json({ message: `Invalid or expired OTP ${otp},${storedOtp}` });
+    if (!storedOtp || storedOtp.toString() !== otp.toString()) {
+      return res.status(400).json({
+        message: `Invalid or expired OTP`,
+      });
     }
 
-    // Remove OTP from storage
-    otpStorage.delete(formattedPhone);
+    otpStorage.delete(numericPhone);
 
-
-    let phoneChecking;
-
-// Remove all non-numeric characters
-phoneChecking = phone.replace(/\D/g, "");
-
-// Always take last 10 digits
-phoneChecking = phone.slice(-10);
-
-
-// Now search in DB
-const user = await User.findOne({ phone: phoneChecking });
-
-    // Find customer
-    if (!user) {
-      return res.status(400).json({ message: "User not found" });
-    }
+    // Fetch user
+    const user = await User.findOne({ phone: numericPhone });
+    if (!user) return res.status(400).json({ message: "User not found" });
 
     user.FcmToken = FcmToken;
     await user.save();
 
-    const bloodDonor = await Blood.findOne({userId:  user._id});    
+    const bloodDonor = await Blood.findOne({ userId: user._id });
 
-    // Generate JWT
+    // JWT Token
     const token = Jwt.sign(
       { email: user.email, id: user._id },
       process.env.JWT_SECRET || "myjwtsecretkey",
       { expiresIn: "1h" }
     );
 
-    const userDetails = {
-      name: user.name,
-      email: user.email,
-      _id: user._id,
-      phone: user.phone,
-      picture: user?.picture,
-      donorId: bloodDonor ? bloodDonor._id : null 
-    };
-
     return res.status(200).json({
       message: "OTP verified successfully",
       token,
-      userDetails,
+      userDetails: {
+        name: user.name,
+        email: user.email,
+        _id: user._id,
+        phone: user.phone,
+        picture: user.picture,
+        donorId: bloodDonor ? bloodDonor._id : null,
+      },
       status: 200,
     });
+
   } catch (err) {
     console.error("Verify OTP error:", err);
     return res.status(500).json({ error: "Server error, please try again" });
   }
 };
+
+
 
 // Get user data
 const userData = async (req, res) => {
