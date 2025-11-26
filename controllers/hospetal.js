@@ -307,6 +307,7 @@ const resetPassword = async (req, res) => {
   await hospital.save({ validateBeforeSave: false });
 
   return res.status(200).json({
+    status: 200,
     message: "Password updated successfully",
   });
 };
@@ -702,7 +703,7 @@ const updateHospitalDetails = async (req, res) => {
 
 // Add a new specialty
 const addSpecialty = async (req, res) => {
-  console.log(req.body, "hhii");
+  
   
   const { department_info, description, doctors, name, phone } = req.body;
   const { id } = req.params;
