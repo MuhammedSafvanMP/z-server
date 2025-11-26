@@ -14,7 +14,8 @@ const {
   saveExpoToken, 
   getReviews,
   getReviewsAHospital,
-  test
+  test,
+  aUserDelete,
 } = require("../controllers/user");
 const { trycatch } = require("../utils/tryCatch");
 const Auth = require("../middlewares/authentication");
@@ -28,6 +29,7 @@ userRoutes.post("/users/login/phone", trycatch(login));
 userRoutes.post("/users/password", Auth, trycatch(resetPassword));
 userRoutes.get("/users",  trycatch(userData));
 userRoutes.get("/users/:id", trycatch(aUserData));
+userRoutes.delete("/users/:id", trycatch(aUserDelete));
 userRoutes.put("/users/:id", trycatch(uploadProfile));
 userRoutes.get("/hospitals", trycatch(getHospitals));
 userRoutes.get("/reviews", trycatch(getReviews));
