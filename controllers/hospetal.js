@@ -1372,6 +1372,8 @@ if (!admin.apps.length) {
 ) => {
   try {
     const { hospitalId, bookingId } = req.params;
+    console.log(req.body, "hiii");
+    
     const { status, booking_date, booking_time } = req.body;
 
 
