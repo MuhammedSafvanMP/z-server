@@ -7,6 +7,8 @@ const bookingModel = require("../models/bookings");
 const mongoose = require("mongoose");
 const { v2: cloudinary } = require("cloudinary");
 const  admin = require("firebase-admin");
+const cron = require("node-cron");
+
 
 
 const { getIO } = require("../sockets/socket");
@@ -725,10 +727,12 @@ const addSpecialty = async (req, res) => {
     return res.status(404).json({ message: "Specialty is already exist!" });    
   }
 
-    const cleanedPhone = phone.startsWith("0") ? phone.slice(1) : phone;
+   if(phone) {
+     const cleanedPhone = phone.startsWith("0") ? phone.slice(1) : phone;
     if (!/^\d{10}$/.test(cleanedPhone)) {
         return res.status(404).json({ message: "Phone number must be exactly 10 digits" });
     }
+   }
 
   hospital.specialties.push({
     name: name,
@@ -841,12 +845,27 @@ const addDoctor = async (req, res) => {
 
   const hospital = await Hospital.findById(id);
  
+    
+   const flilterData = hospital?.specialties
+    .filter((Specialty) => {
+      return Specialty.name.toLocaleLowerCase() == specialty.toLocaleLowerCase();
+    })[0]
+
+    if(!flilterData){
+        hospital.specialties.push({
+    name: specialty
+  });
+
+    await hospital.save();
+
+    }    
   
   hospital?.specialties
     .filter((Specialty) => {
       return Specialty.name.toLocaleLowerCase() == specialty.toLocaleLowerCase();
     })[0]
     .doctors.push(data);
+
   await hospital?.save();
   return res.status(201).json({
     message: `Added new doctor in ${specialty}`,
@@ -957,266 +976,20 @@ const deleteDoctor = async (req, res) => {
 };
 
 
-const hospitalDelete = async (req, res) => {
-  const { id } = req.params;
+// const hospitalDelete = async (req, res) => {
+//   const { id } = req.params;
 
-  if (req.cookies.refreshToken) {
-    const expirationDate = new Date(0);
-    res.cookie("refreshToken", "", {
-      httpOnly: true,
-      expires: expirationDate,
-    
-        secure: process.env.NODE_ENV === "production", 
-  sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-    });
-  }
-  const hospital = await Hospital.findById(id);
-  if (!hospital) {
-          return res.status(400).json({ message: "Hospital not found!" });
 
-  }
-  if (hospital.image?.public_id) {
-    await cloudinary.uploader.destroy(hospital.image.public_id);
-  }
-  await Hospital.deleteOne({ _id: id });
-  return res.status(200).send("Your account deleted successfully");
-};
+//   const hospital = await Hospital.findById(id);
+//   if (!hospital) {
+//           return res.status(400).json({ message: "Hospital not found!" });
 
-// const createBooking = async (req, res) => {
-//   try {
-//     const { id } = req.params; // hospital id
-//     const { userId, specialty, doctor_name, booking_date,  patient_name ,  patient_phone , patient_place,  patient_dob } = req.body;
-
-//     // Validate user
-//     const user = await User.findById(userId);
-//     if (!user) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
-
-//     // Validate hospital
-//     const hospital = await Hospital.findById(id);
-//     if (!hospital) {
-//       return res.status(404).json({ message: "Hospital not found" });
-//     }
-
-//     // Create new booking object
-//     const newBooking = {
-//       userId,
-//       specialty,
-//       doctor_name,
-//       booking_date,
-//       status: "pending",
-//       patient_name ,  patient_phone , patient_place,  patient_dob
-//     };
-
-//     // Push into hospital booking array
-//     hospital.booking.push(newBooking);
-
-//     // Save hospital
-//     await hospital.save();
-
-//     await notficationModel.create({
-//       hospitalId: id,
-//       message: `${doctor_name} has created a new booking.`,
-//     });
-
-//     const io = getIO();
-//     io.emit("pushNotification", {
-//       hospitalId: id,
-//       message: `New booking by ${doctor_name}`,
-//     });
-
-//     return res.status(201).json({
-//       message: "Booking created successfully",
-//       data: hospital.booking[hospital.booking.length - 1], 
-//       status: 201,
-//     });
-//   } catch (error) {
-//     console.error("Error creating booking:", error);
-//     return res.status(500).json({ message: "Server error", error });
 //   }
-// };
-
-// const updateBooking = async (req, res) => {
-//   try {
-//     const { hospitalId, bookingId } = req.params;
-//     const { status, booking_date, booking_time } = req.body;
-
-//     // Find hospital
-//     const hospital = await Hospital.findById(hospitalId);
-//     if (!hospital) {
-//       return res.status(404).json({ message: "Hospital not found" });
-//     }
-
-//     // Find booking inside hospital
-//     const booking = hospital.booking.id(bookingId);
-//     if (!booking) {
-//       return res.status(404).json({ message: "Booking not found" });
-//     }
-
-//     // Update booking fields
-//     if (status) booking.status = status;
-//     if (booking_date) booking.booking_date = booking_date;
-//     if (booking_time) booking.booking_time = booking_time;
-
-//     await hospital.save();
-
-//     // Find the user of this booking
-//     const user = await User.findById(booking.userId);
-//     if (!user) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
-
-   
-
-//     if (status == "cancel") {
-//       await notficationModel.create({
-//         hospitalId: hospitalId,
-//         message: `The booking with  ${booking.doctor_name} has been ${booking.status}.`,
-//       });
-//     } else {
-//       // Create a notification record in DB
-//       await notficationModel.create({
-//         userId: booking.userId,
-//         message: `Your booking with ${booking.doctor_name} is now ${booking.status}.`,
-//       });
-      
-//        const io = getIO();
-//     io.emit("pushNotificationPhone", {
-//       userId: booking.userId,
-//   message: `Your booking with ${booking.doctor_name} is ${booking.status}`,
-//     });
-//     }
-
-//     return res.status(200).json({
-//       message: "Booking updated and notification sent",
-//       booking,
-//     });
-//   } catch (error) {
-//     console.error("Error updating booking:", error);
-//     return res.status(500).json({ message: "Server error", error });
+//   if (hospital.image?.public_id) {
+//     await cloudinary.uploader.destroy(hospital.image.public_id);
 //   }
-// };
-
-
-// const createBooking = async (
-//   req,
-//   res
-// ) => {
-//   try {
-//     const { id } = req.params; // hospital id
-//     const { 
-//       userId, 
-//       specialty, 
-//       doctor_name, 
-//       booking_date,  
-//       patient_name,  
-//       patient_phone, 
-//       patient_place,  
-//       patient_dob 
-//     } = req.body;
-
-//     // Validate phone number - remove starting 0 if needed
-//     const cleanedPhone = patient_phone.startsWith("0") ? patient_phone.slice(1) : patient_phone;
-//     if (!/^\d{10}$/.test(cleanedPhone)) {
-//              return res.status(400).json({ message:  "Phone number must be exactly 10 digits" });
-//     }
-
-//     // Validate user
-//     const user = await User.findById(userId);
-//     if (!user) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
-
-//     // Validate hospital
-//     const hospital = await Hospital.findById(id);
-//     if (!hospital) {
-//       return res.status(404).json({ message: "Hospital not found" });
-//     }
-
-//     // Parse booking date and get day name
-//     const bookingDate = new Date(booking_date);
-//     const bookingDay = bookingDate.toLocaleDateString('en-US', { weekday: 'long' });
-    
-//     // Find the doctor and check availability
-//     let isDoctorAvailable = false;
-//     let foundDoctor = null;
-//     let availableDays = [];
-
-//     // Loop through specialties to find the doctor
-//     for (const specialtyItem of hospital.specialties) {
-//       for (const doctor of specialtyItem.doctors) {
-//         if (doctor.name === doctor_name) {
-//           foundDoctor = doctor;
-          
-//           // Check if doctor has consulting schedule
-//           if (doctor.consulting && Array.isArray(doctor.consulting)) {
-//             availableDays = doctor.consulting
-//               .filter(consult => consult.day && consult.sessions && consult.sessions.length > 0)
-//               .map(consult => consult.day);
-            
-//             isDoctorAvailable = availableDays.includes(bookingDay);
-//           }
-//           break;
-//         }
-//       }
-//       if (foundDoctor) break;
-//     }
-
-//     if (!foundDoctor) {
-//       return res.status(404).json({ 
-//         message: `Doctor ${doctor_name} not found in this hospital` 
-//       });
-//     }
-
-//     if (!isDoctorAvailable) {
-//       return res.status(400).json({ 
-//         message: `Doctor ${doctor_name} is not available on ${bookingDay}. Available days: ${availableDays.join(', ')}` 
-//       });
-//     }
-
-//    const booking = await   bookingModel.create({
-//          userId,
-//       specialty,
-//       doctor_name,
-//       booking_date,
-//       status: "pending",
-//       patient_name,  
-//       patient_phone, 
-//       patient_place,  
-//       patient_dob,
-//       hospitalId: id,
-//   })
-
-//   await booking.save()
-
-
-//     // Create notification
-//     await notficationModel.create({
-//       hospitalId: id,
-//       message: `New booking created for Dr. ${doctor_name} on ${bookingDay}.`,
-//     });
-
-//     // Emit socket event
-//     const io = getIO();
-//     io.emit("pushNotification", {
-//       hospitalId: id,
-//       message: `New booking by ${patient_name} for Dr. ${doctor_name}`,
-//     });
-
-//     io.emit("bookingcreate", {
-//       userId: userId,
-//        message: `Your booking accepted`,
-//     });
-
-//     return res.status(201).json({
-//       message: "Booking created successfully",
-//       data: booking, 
-//     });
-//   } catch (error) {
-//     console.error("Error creating booking:", error);
-//     return res.status(500).json({ message: "Server error", error });
-//   }
+//   await Hospital.deleteOne({ _id: id });
+//   return res.status(200).send("Your account deleted successfully");
 // };
 
 
@@ -1612,6 +1385,83 @@ const getBookingsByUserId = async (req, res) => {
 };
 
 
+const hospitalDelete = async (req, res) => {
+  const { id } = req.params;
+
+  const hospital = await Hospital.findById(id);
+  if (!hospital) {
+    return res.status(400).json({ message: "Hospital not found!" });
+  }
+
+  // Already requested?
+  if (hospital.deleteRequested) {
+    return res.status(400).json({ message: "Delete already requested!" });
+  }
+
+  // Set delete in 10 days
+  hospital.deleteRequested = true;
+  hospital.deleteDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000); // 10 days
+
+  await hospital.save();
+
+  return res.status(200).json({
+    message: "Delete request received. Your account will be deleted after 10 days unless recovered."
+  });
+};
+
+
+const recoverHospital = async (req, res) => {
+  const { id } = req.params;
+
+  const hospital = await Hospital.findById(id);
+  if (!hospital) {
+    return res.status(400).json({ message: "Hospital not found!" });
+  }
+
+  if (!hospital.deleteRequested) {
+    return res.status(400).json({ message: "No delete request found!" });
+  }
+
+  // Cancel delete
+  hospital.deleteRequested = false;
+  hospital.deleteDate = null;
+
+  await hospital.save();
+
+  return res.status(200).json({ message: "Your account has been recovered successfully." });
+};
+
+
+
+
+
+
+// Runs every day at midnight
+cron.schedule("0 0 * * *", async () => {
+  const now = new Date();
+
+  const hospitals = await Hospital.find({
+    deleteRequested: true,
+    deleteDate: { $lte: now }
+  });
+
+  for (let hospital of hospitals) {
+    if (hospital.image?.public_id) {
+      await cloudinary.uploader.destroy(hospital.image.public_id);
+    }
+
+    await Hospital.deleteOne({ _id: hospital._id });
+
+       io.emit("hospitalDelete", {
+        hospitalId:  hospital._id,
+      });
+  }
+
+  console.log("Old deleted hospitals cleaned!");
+});
+
+
+
 
 module.exports = {
   HospitalRegistration,
@@ -1634,6 +1484,7 @@ module.exports = {
   getHospitalDataSearch,
   getHospitalDoctors,
   getSingleHospital,
-  getBookingsByHospitalId
+  getBookingsByHospitalId,
+  recoverHospital,
 };
 

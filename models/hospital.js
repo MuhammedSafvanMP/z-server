@@ -104,6 +104,8 @@ const hospitalSchema = new Schema({
   working_hours_clinic: [workingHoursClinicSchema],
   specialties: [specialtySchema],
   ads: [adSchema],
+  deleteRequested: { type: Boolean, default: false },
+  deleteDate: { type: Date, default: null },
 }, {timestamps: true});
 
 // Create the model
