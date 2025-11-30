@@ -135,6 +135,7 @@ app.use(
       "http://localhost:7864",
       "https://www.hostahospital.com",
       "https://hostahospital.com",
+      "https://ambulaces-hosta.vercel.app",
     ],
     credentials: true,
   })
