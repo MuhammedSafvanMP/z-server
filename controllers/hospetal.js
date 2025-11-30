@@ -646,6 +646,7 @@ const updateHospitalDetails = async (req, res) => {
  
     const { id } = req.params;
 
+
     // file from multer
     let file = req.file || null;
 
@@ -674,6 +675,7 @@ const updateHospitalDetails = async (req, res) => {
     hospital.working_hours_clinic = workingHoursClinicParsed.length ? workingHoursClinicParsed : hospital.working_hours_clinic;
     hospital.emergencyContact = req.body.emergencyContact || hospital.emergencyContact;
     hospital.about = req.body.about || hospital.about;
+    hospital.autoDeclineMinutes = req.body.autoDeclineMinutes || hospital.autoDeclineMinutes;
 
     // image upload
     if (file) {
@@ -1145,7 +1147,7 @@ if (!admin.apps.length) {
 ) => {
   try {
     const { hospitalId, bookingId } = req.params;
-    console.log(req.body, "hiii");
+ 
     
     const { status, booking_date, booking_time } = req.body;
 
@@ -1459,6 +1461,57 @@ cron.schedule("0 0 * * *", async () => {
 
   console.log("Old deleted hospitals cleaned!");
 });
+
+
+
+cron.schedule("* * * * *", async () => {
+  const now = new Date();
+
+  // Get all pending bookings
+  const pendingBookings = await bookingModel.find({ status: "pending" });
+
+  for (let booking of pendingBookings) {
+
+    const hospital = await Hospital.findById(booking.hospitalId);
+
+    if (!hospital || !hospital.autoDeclineMinutes) continue;
+
+    const expiryTime = new Date(booking.createdAt.getTime() + hospital.autoDeclineMinutes * 60 * 1000);
+
+    // If expired → Decline
+    if (now >= expiryTime) {
+      booking.status = "declined";
+      await booking.save();
+
+      console.log(`Auto declined booking: ${booking._id}`);
+
+        io.emit("pushNotificationWeb", {
+        hospitalId: booking.hospitalId,
+        message: `The booking with Dr. ${booking.doctor_name} has been ${status}.`,
+      });
+
+
+       io.emit("pushNotificationPhone", {
+        userId: booking.userId,
+        message: `Your booking with Dr. ${booking.doctor_name} is ${status}`,
+      });
+
+       io.emit("pushNotification", {
+        userId: booking.userId,
+        message: `Your booking with Dr. ${booking.doctor_name} is ${status}`,
+      });
+
+        io.emit("bookingUpdate", {
+        userId: booking.userId,
+        message: `Your booking with Dr. ${booking.doctor_name} is ${status}`,
+      });
+
+      // Optional: create notification
+      // Optional: send FCM
+    }
+  }
+});
+
 
 
 

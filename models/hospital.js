@@ -106,6 +106,7 @@ const hospitalSchema = new Schema({
   ads: [adSchema],
   deleteRequested: { type: Boolean, default: false },
   deleteDate: { type: Date, default: null },
+  autoDeclineMinutes: { type: Number, default: 5 }
 }, {timestamps: true});
 
 // Create the model
