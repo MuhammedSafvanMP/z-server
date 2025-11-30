@@ -320,8 +320,11 @@ const getHospitalDataSearch = async (req, res) => {
 
     const findHospital = await Hospital.find({
       $or: [
-        { type: { $regex: new RegExp(search, "i") } }, // Match type (case-insensitive)
-        { "specialties.name": { $regex: new RegExp(search, "i") } } // Match specialties array name
+        
+    { type: { $regex: `^${search}$`, $options: "i" } },
+    { "specialties.name": { $regex: `^${search}$`, $options: "i" } }
+  
+
       ]
     });
 
