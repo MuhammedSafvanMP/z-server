@@ -169,8 +169,8 @@ const ambulanceDelete = async (req, res) => {
     message: "Hospital not found"
   });
   }
-  await Ambulance.deleteOne({ _id: id });
-  return res.status(200).send("Your account deleted successfully");
+  await Ambulance.findByIdAndDelete({ _id: id });
+  return res.status(200).send({message: "Your account deleted successfully", status: 200});
 };
 
 // Get all ambulances

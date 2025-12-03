@@ -1468,52 +1468,75 @@ cron.schedule("0 0 * * *", async () => {
 
 
 cron.schedule("* * * * *", async () => {
-  const now = new Date();
+  try {
+    const now = new Date();
 
-  // Get all pending bookings
-  const pendingBookings = await bookingModel.find({ status: "pending" });
+    // Get all pending bookings
+    const pendingBookings = await bookingModel.find({ status: "pending" });
 
-  for (let booking of pendingBookings) {
+    for (let booking of pendingBookings) {
+      try {
+        const hospital = await Hospital.findById(booking.hospitalId);
 
-    const hospital = await Hospital.findById(booking.hospitalId);
+        if (!hospital || !hospital.autoDeclineMinutes) continue;
 
-    if (!hospital || !hospital.autoDeclineMinutes) continue;
+        const expiryTime = new Date(
+          booking.createdAt.getTime() + hospital.autoDeclineMinutes * 60 * 1000
+        );
 
-    const expiryTime = new Date(booking.createdAt.getTime() + hospital.autoDeclineMinutes * 60 * 1000);
+        // If expired → Decline
+        if (now >= expiryTime) {
+          booking.status = "declined";
+          await booking.save();
 
-    // If expired → Decline
-    if (now >= expiryTime) {
-      booking.status = "declined";
-      await booking.save();
+          // Get socket instance
+          const io = getIO();
+          
+          // Check if socket is available
+          if (!io) {
+            console.error("Socket IO not available");
+            continue;
+          }
 
-      console.log(`Auto declined booking: ${booking._id}`);
+          // Use actual status string instead of undefined variable
+          const status = "declined";
 
-        io.emit("pushNotificationWeb", {
-        hospitalId: booking.hospitalId,
-        message: `The booking with Dr. ${booking.doctor_name} has been ${status}.`,
-      });
+          // Emit to web clients
+          io.emit("pushNotificationWeb", {
+            hospitalId: booking.hospitalId,
+            message: `The booking with Dr. ${booking.doctor_name} has been ${status}.`,
+          });
 
+          // Emit to phone clients
+          io.emit("pushNotificationPhone", {
+            userId: booking.userId,
+            message: `Your booking with Dr. ${booking.doctor_name} is ${status}`,
+          });
 
-       io.emit("pushNotificationPhone", {
-        userId: booking.userId,
-        message: `Your booking with Dr. ${booking.doctor_name} is ${status}`,
-      });
+          // General notification
+          io.emit("pushNotification", {
+            userId: booking.userId,
+            message: `Your booking with Dr. ${booking.doctor_name} is ${status}`,
+          });
 
-       io.emit("pushNotification", {
-        userId: booking.userId,
-        message: `Your booking with Dr. ${booking.doctor_name} is ${status}`,
-      });
+          // Booking update
+          io.emit("bookingUpdate", {
+            userId: booking.userId,
+            bookingId: booking._id,
+            status: status,
+            message: `Your booking with Dr. ${booking.doctor_name} is ${status}`,
+          });
 
-        io.emit("bookingUpdate", {
-        userId: booking.userId,
-        message: `Your booking with Dr. ${booking.doctor_name} is ${status}`,
-      });
-
-      // Optional: create notification
-      // Optional: send FCM
+        }
+      } catch (bookingError) {
+        console.error(`Error processing booking ${booking._id}:`, bookingError);
+      }
     }
+  } catch (error) {
+    console.error("Error in auto-decline cron job:", error);
   }
 });
+
 
 
 
