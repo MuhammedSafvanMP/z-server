@@ -307,47 +307,29 @@ const uploadProfile = async (req, res) => {
 const addASpeciality = async (req, res) => {
   try {
     const { name } = req.body;
+    console.log(req.body, "Hii");
 
     if (!name) {
-      return res.status(400).json({
-        message: "Name is required"
-      });
+      return res.status(400).json({ message: "Name is required" });
     }
 
-    // Check if speciality already exists
     const existing = await specialityModle.findOne({ name });
-
     if (existing) {
-      return res.status(400).json({
-        message: "This speciality already exists"
-      });
-    }
-
-    // File handling (optional)
-    let file = null;
-    if (req.headers['content-type']?.includes('multipart/form-data')) {
-      const reqWithFile = await uploadFile(req, res);
-      file = reqWithFile.file;
+      return res.status(400).json({ message: "This speciality already exists" });
     }
 
     let picture = null;
 
-    // Upload image if provided
-    if (file) {
-      const normalizedPath = path.normalize(file.path);
-      const result = await cloudinary.uploader.upload(normalizedPath);
-
+    // file uploaded?
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path);
       picture = {
         imageUrl: result.secure_url,
         public_id: result.public_id,
       };
     }
 
-    // Create speciality
-    await specialityModle.create({
-      name,
-      picture,
-    });
+    await specialityModle.create({ name, picture });
 
     return res.status(200).json({
       message: "Speciality created successfully"
@@ -355,10 +337,7 @@ const addASpeciality = async (req, res) => {
 
   } catch (error) {
     console.error("❌ Error in addASpeciality:", error);
-    return res.status(500).json({
-      message: "Internal server error",
-      error: error.message
-    });
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -367,77 +346,55 @@ const addASpeciality = async (req, res) => {
 const uploadSpeciality = async (req, res) => {
   try {
     const { id } = req.params;
-    
 
-    // Handle file upload if present
-    let file = null;
-    if (req.headers['content-type']?.includes('multipart/form-data')) {
-      const reqWithFile = await uploadFile(req, res);
-      file = reqWithFile.file;
-      
-    }
+    // Multer stores uploaded file in req.file
+    const file = req.file;
 
     const speciality = await specialityModle.findById(id);
     if (!speciality) {
       return res.status(404).json({ message: "Speciality not found!" });
     }
 
-    // Extract data from request - handle both JSON and form-data
+    // Get name from req.body
     const { name } = req.body;
 
-
-    // Validate required fields
     if (!name) {
-      return res.status(400).json({ 
-        message: "Name is required " 
-      });
+      return res.status(400).json({ message: "Name is required" });
     }
 
-
-    // Update user fields
     speciality.name = name;
-  
 
-    // Handle image upload if file exists
+    // If new image uploaded
     if (file) {
-      console.log("📸 Processing image upload...");
-      
-      // Delete old image if exists
+      console.log("📸 New image uploaded...");
+
       if (speciality.picture?.public_id) {
-        try {
-          await cloudinary.uploader.destroy(speciality.picture.public_id);
-          console.log("🗑️ Old image deleted from Cloudinary");
-        } catch (cloudinaryError) {
-          console.log("⚠️ Could not delete old image from Cloudinary:", cloudinaryError);
-        }
+        await cloudinary.uploader.destroy(speciality.picture.public_id);
       }
 
-      const normalizedPath = path.normalize(file.path);
-      const result = await cloudinary.uploader.upload(normalizedPath);
+      const result = await cloudinary.uploader.upload(file.path);
 
       speciality.picture = {
         imageUrl: result.secure_url,
         public_id: result.public_id,
       };
-      console.log("✅ New image uploaded to Cloudinary");
     }
 
     await speciality.save();
-
-
 
     return res.status(200).json({
       message: "Speciality updated successfully",
     });
 
   } catch (error) {
-    console.error("❌ Error in uploadProfile:", error);
-    return res.status(500).json({ 
+    console.error("❌ Error in uploadSpeciality:", error);
+    return res.status(500).json({
       message: "Internal server error",
-      error: error.message 
+      error: error.message
     });
   }
 };
+
 
 module.exports = {
   upload,

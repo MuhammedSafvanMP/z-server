@@ -25,107 +25,215 @@ const client = twilio(
 );
 
 // Hospital Registration
+// const HospitalRegistration = async (req, res) => {
+
+//   console.log(req.body, "hiiii");
+  
+
+//   const {
+//     name,
+//     type,
+//     email,
+//     mobile,
+//     address,
+//     latitude,
+//     longitude,
+//     password,
+//     workingHours,
+//     workingHoursClinic,
+//     hasBreakSchedule = false,
+//   } = req.body;
+
+//   // Validate the request body using Joi - update your Joi schema accordingly
+//   const data = {
+//     name,
+//     email,
+//     mobile,
+//     address,
+//     latitude,
+//     longitude,
+//     password,
+//     workingHours: hasBreakSchedule ? undefined : workingHours,
+//     workingHoursClinic: hasBreakSchedule ? workingHoursClinic : undefined,
+//     hasBreakSchedule,
+//   };
+
+//   // const { error } = await RegistrationSchema.validate(data);
+//   // if (error) {
+//   //   throw new createError.BadRequest(error?.details[0].message);
+//   // }
+
+//   // Check if the hospital already exists with the same email
+//   const existingHospital = await Hospital.findOne({ email });
+//   if (existingHospital) {
+//      return res.status(409).json({ message: "Email already exists. Please login." });
+
+//   }
+
+//     const existingHospitalMobile = await Hospital.findOne({ phone: mobile });
+//   if (existingHospitalMobile) {
+//      return res.status(409).json({ message: "Phone already exists. Please login." });
+
+//   }
+
+//   // Hash the password before saving it
+//   const hashedPassword = await bcrypt.hash(password, 10);
+
+//   // Prepare the hospital data based on schedule type
+//   const hospitalData = {
+//     name,
+//     type,
+//     email,
+//     phone: mobile,
+//     address,
+//     latitude,
+//     longitude,
+//     password: hashedPassword,
+//   };
+
+//   if (workingHoursClinic) {
+//     // Use clinic schedule with breaks
+//     hospitalData.working_hours_clinic = Object.entries(workingHoursClinic).map(
+//       ([day, hours]) => ({
+//         day,
+//         morning_session: hours.isHoliday
+//           ? { open: "", close: "" }
+//           : hours.morning_session,
+//         evening_session: hours.isHoliday
+//           ? { open: "", close: "" }
+//           : hours.evening_session,
+//         is_holiday: hours.isHoliday,
+//         has_break: hours.hasBreak,
+//       })
+//     );
+//   } else if (workingHours) {
+//     console.log(workingHours, "hiii");
+    
+//     // Use regular schedule without breaks
+//     hospitalData.working_hours = Object.entries(workingHours).map(
+//       ([day, hours]) => ({
+//         day,
+//         opening_time: hours.isHoliday ? "" : hours.open,
+//         closing_time: hours.isHoliday ? "" : hours.close,
+//         is_holiday: hours.isHoliday,
+//       })
+//     );
+//     console.log( "eeeeiii");
+//   }
+
+//   const newHospital = new Hospital(hospitalData);
+
+//   // Save the hospital to the database
+//   await newHospital.save();
+
+//   // Respond with a success message
+//   return res.status(201).json({
+//     message: "Hospital registered successfully.",
+//     status: 200,
+//     scheduleType: hasBreakSchedule ? "clinic_with_breaks" : "regular",
+//   });
+// };
+
 const HospitalRegistration = async (req, res) => {
-  const {
-    name,
-    type,
-    email,
-    mobile,
-    address,
-    latitude,
-    longitude,
-    password,
-    workingHours,
-    workingHoursClinic,
-    hasBreakSchedule = false,
-  } = req.body;
+  try {
+    console.log(req.body, "hiiii");
 
-  // Validate the request body using Joi - update your Joi schema accordingly
-  const data = {
-    name,
-    email,
-    mobile,
-    address,
-    latitude,
-    longitude,
-    password,
-    workingHours: hasBreakSchedule ? undefined : workingHours,
-    workingHoursClinic: hasBreakSchedule ? workingHoursClinic : undefined,
-    hasBreakSchedule,
-  };
+    const {
+      name,
+      type,
+      email,
+      mobile,
+      address,
+      latitude,
+      longitude,
+      password,
+      workingHours,
+      workingHoursClinic,
+      hasBreakSchedule = false,
+      emergencyContact,
+    } = req.body;
 
-  // const { error } = await RegistrationSchema.validate(data);
-  // if (error) {
-  //   throw new createError.BadRequest(error?.details[0].message);
-  // }
+    // Check if hospital already exists
+    const existingEmail = await Hospital.findOne({ email });
+    if (existingEmail) {
+      return res.status(409).json({ message: "Email already exists. Please login." });
+    }
 
-  // Check if the hospital already exists with the same email
-  const existingHospital = await Hospital.findOne({ email });
-  if (existingHospital) {
-     return res.status(409).json({ message: "Email already exists. Please login." });
+    const existingPhone = await Hospital.findOne({ phone: mobile });
+    if (existingPhone) {
+      return res.status(409).json({ message: "Phone already exists. Please login." });
+    }
 
-  }
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    const existingHospitalMobile = await Hospital.findOne({ phone: mobile });
-  if (existingHospitalMobile) {
-     return res.status(409).json({ message: "Phone already exists. Please login." });
+    // Base data
+    const hospitalData = {
+      name,
+      type,
+      email,
+      phone: mobile,
+      address,
+      latitude,
+      longitude,
+      emergency_contact: emergencyContact || "",
+      password: hashedPassword,
+      has_break_schedule: hasBreakSchedule,
+    };
 
-  }
-
-  // Hash the password before saving it
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  // Prepare the hospital data based on schedule type
-  const hospitalData = {
-    name,
-    type,
-    email,
-    phone: mobile,
-    address,
-    latitude,
-    longitude,
-    password: hashedPassword,
-  };
-
-  if (workingHoursClinic) {
-    // Use clinic schedule with breaks
-    hospitalData.working_hours_clinic = Object.entries(workingHoursClinic).map(
-      ([day, hours]) => ({
-        day,
-        morning_session: hours.isHoliday
+    // ****************************
+    // Save Clinic Schedule (with breaks)
+    // ****************************
+    if (
+      hasBreakSchedule &&
+      Array.isArray(workingHoursClinic) &&
+      workingHoursClinic.length > 0
+    ) {
+      hospitalData.working_hours_clinic = workingHoursClinic.map((item) => ({
+        day: item.day,
+        morning_session: item.is_holiday
           ? { open: "", close: "" }
-          : hours.morning_session,
-        evening_session: hours.isHoliday
+          : item.morning_session,
+        evening_session: item.is_holiday
           ? { open: "", close: "" }
-          : hours.evening_session,
-        is_holiday: hours.isHoliday,
-        has_break: hours.hasBreak,
-      })
-    );
-  } else if (workingHours) {
-    // Use regular schedule without breaks
-    hospitalData.working_hours = Object.entries(workingHours).map(
-      ([day, hours]) => ({
-        day,
-        opening_time: hours.isHoliday ? "" : hours.open,
-        closing_time: hours.isHoliday ? "" : hours.close,
-        is_holiday: hours.isHoliday,
-      })
-    );
+          : item.evening_session,
+        is_holiday: item.is_holiday,
+        has_break: item.has_break || item.hasBreak || false,
+      }));
+    }
+
+    // ****************************
+    // Save Normal Schedule (no breaks)
+    // ****************************
+    if (
+      !hasBreakSchedule &&
+      Array.isArray(workingHours) &&
+      workingHours.length > 0
+    ) {
+      hospitalData.working_hours = workingHours.map((item) => ({
+        day: item.day,
+        opening_time: item.is_holiday ? "" : item.opening_time,
+        closing_time: item.is_holiday ? "" : item.closing_time,
+        is_holiday: item.is_holiday,
+      }));
+    }
+
+    // Create & Save
+    const newHospital = new Hospital(hospitalData);
+    await newHospital.save();
+
+    return res.status(201).json({
+      message: "Hospital registered successfully.",
+      status: 200,
+      scheduleType: hasBreakSchedule ? "clinic_with_breaks" : "regular",
+    });
+
+  } catch (error) {
+    console.log("Error Registration:", error);
+    return res.status(500).json({ message: "Server error", error });
   }
-
-  const newHospital = new Hospital(hospitalData);
-
-  // Save the hospital to the database
-  await newHospital.save();
-
-  // Respond with a success message
-  return res.status(201).json({
-    message: "Hospital registered successfully.",
-    status: 200,
-    scheduleType: hasBreakSchedule ? "clinic_with_breaks" : "regular",
-  });
 };
+
 
 //Hospital login
 const HospitalLogin = async (req, res) => {
@@ -444,25 +552,13 @@ const getHospitalDoctors = async (req, res) => {
 
 // Get Hospital(DashBoard) Details
 const getHospitalDetails = async (req, res) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) {
-            return res.status(401).json({ message: "No token provided. Please login." });    
 
-  }
 
-  const decoded = Jwt.verify(
-    token,
-    process.env.JWT_SECRET
-  );
-  if (!decoded) {
-        return res.status(401).json({ message: "Invalid token. Please login." });    
-  }
-
-  const hospital = await Hospital.findById(decoded.id);
+  const hospitals = await Hospital.find().sort({ createdAt: -1 });
 
   return res.status(200).json({
     status: "Success",
-    data: hospital,
+    data: hospitals,
   });
 };
 
@@ -881,6 +977,9 @@ const addDoctor = async (req, res) => {
 // Update Doctor
 const updateDoctor = async (req, res) => {
   const { hospitalId, specialtyId, doctorId } = req.params;
+
+  // console.log(req.params, req.body, "hiiii");
+  
   
   const { _id, name, specialty, consulting, qualification, bookingOpen } = req.body;
   const data = { name, consulting, qualification };
@@ -900,6 +999,11 @@ const updateDoctor = async (req, res) => {
 
   }
 
+   if (specialty && specialty !== "") {
+  targetSpecialty.name = specialty;
+}
+  
+
   const targetDoctor = targetSpecialty.doctors.find((d) => d._id.toString() == doctorId);
 
   if (!targetDoctor) {
@@ -911,6 +1015,7 @@ const updateDoctor = async (req, res) => {
  if (data.name && data.name !== "") {
   targetDoctor.name = data.name;
 }
+
 
 if (Array.isArray(data.consulting) && data.consulting.length > 0) {
   targetDoctor.consulting = data.consulting;
@@ -996,6 +1101,24 @@ const deleteDoctor = async (req, res) => {
 //   await Hospital.deleteOne({ _id: id });
 //   return res.status(200).send("Your account deleted successfully");
 // };
+
+ const getHospitalBookings = async (req, res) => {
+  try {
+    
+    const hospital = await bookingModel.find().populate("hospitalId");
+    
+    if (!hospital) res.status(404).json({message: "Hospital booking not found"});
+
+    return res.status(200).json({
+      message: "Hospital bookings fetched successfully",
+      data: hospital, 
+      status: 200,
+    });
+  } catch (error) {
+    console.error("❌ Error in get hospital bookings:", error);
+  }
+};
+
 
 
 const createBooking = async (req, res) => {
@@ -1410,7 +1533,8 @@ const hospitalDelete = async (req, res) => {
   await hospital.save();
 
   return res.status(200).json({
-    message: "Delete request received. Your account will be deleted after 10 days unless recovered."
+    message: "Delete request received. Your account will be deleted after 10 days unless recovered.",
+    status: 200
   });
 };
 
@@ -1433,7 +1557,7 @@ const recoverHospital = async (req, res) => {
 
   await hospital.save();
 
-  return res.status(200).json({ message: "Your account has been recovered successfully." });
+  return res.status(200).json({ message: "Your account has been recovered successfully.", status: 200 });
 };
 
 
@@ -1565,5 +1689,6 @@ module.exports = {
   getSingleHospital,
   getBookingsByHospitalId,
   recoverHospital,
+  getHospitalBookings,
 };
 

@@ -22,8 +22,8 @@ const {
   getHospitalDoctors,
   getSingleHospital,
   getBookingsByHospitalId,
-  recoverHospital
-
+  recoverHospital,
+  getHospitalBookings,
 } = require("../controllers/hospetal");
 const { uploadImage, upload } = require("../middlewares/multer");
 const Authenticator = require("../middlewares/authentication");
@@ -48,8 +48,7 @@ hospitalRoutes.post(
   trycatch(resetPassword)
 );
 hospitalRoutes.get(
-  "/hospital/details",
-  Authenticator,
+  "/hospital",
   trycatch(getHospitalDetails)
 );
 
@@ -58,7 +57,6 @@ hospitalRoutes.get(
   "/hospital/filter/:search",
   trycatch(getHospitalDataSearch)
 );
-
 
 
 
@@ -97,7 +95,7 @@ hospitalRoutes.delete(
 hospitalRoutes.delete("/hospital/:id",  trycatch(hospitalDelete));
 hospitalRoutes.put("/hospital/:id/recovery",  trycatch(recoverHospital));
 
-
+hospitalRoutes.get("/bookings", trycatch(getHospitalBookings)); 
 hospitalRoutes.post("/bookings/:id", trycatch(createBooking)); 
 hospitalRoutes.put("/bookings/:bookingId/hospital/:hospitalId", trycatch(updateBooking));
 hospitalRoutes.get("/bookings/user/:userId", trycatch(getBookingsByUserId));

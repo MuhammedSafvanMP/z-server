@@ -8,33 +8,21 @@ const ambulanceSchema = new Schema({
     type: String,
     required: true,
   },
-  address: {
-    type: String,
-    required: true,
-  },
-  latitude: {
-    type: String,
-  },
-  longitude: {
-    type: String,
-  },
+    address: {
+      country : { type: String},
+      state:  { type: String},
+      district: { type: String},
+      place: { type: String, required: true },
+      pincode: { type: Number, required: true },
+    },
   phone: {
     type: String,
     required: true,
     unique: true,
   },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  password: {
-    type: String,
-    required: true,
-  },
   vehicleType: {
     type: String,
   },
-});
+}, {timestamps: true});
 const Ambulance = mongoose.model("Ambulance", ambulanceSchema);
 module.exports = Ambulance;

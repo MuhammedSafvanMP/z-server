@@ -1,35 +1,28 @@
 const bcrypt = require("bcrypt");
 const Ambulance = require("../models/ambulance");
-const createError = require("http-errors");
 const Jwt = require("jsonwebtoken");
 
 const Registeration = async (req, res) => {
+
+  console.log(req.body, "hiiii");
+  
   const {
     serviceName,
     address,
-    latitude,
-    longitude,
     phone,
-    email,
-    password,
     vehicleType,
   } = req.body;
 
 
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const exist = await Ambulance.findOne({ email: email });
+  const exist = await Ambulance.findOne({ phone: phone });
   if (exist) {
       return res
     .status(404)
-    .json({ message: "Your email is already exist" });
+    .json({ message: "Ambulance is already exist" });
   }
   const newAmbulace = new Ambulance({
     serviceName: serviceName,
     address: address,
-    email: email,
-    latitude: latitude,
-    longitude: longitude,
-    password: hashedPassword,
     phone: phone,
     vehicleType: vehicleType,
   });
@@ -109,60 +102,24 @@ const getanAmbulace = async (req, res) => {
   });
 };
 
-//Update Ambulance Data
 const updateData = async (req, res) => {
   const { id } = req.params;
-  const { serviceName, address, latitude, longitude, phone, vehicleType, email } =
-    req.body;
-  const user = await Ambulance.findById(id);
-  if (!user) {
-        return res.status(404).json({
-    message: "Ambulance not found"
+  const updateData = req.body;
+
+  const ambulance = await Ambulance.findByIdAndUpdate(id, updateData, {
+    new: true,
   });
-    
-  }
+  if (!ambulance)   return res.status(404).json({ message: "Ambulance not found", status: 200 });
 
-     const cleanedPhone = phone.startsWith("0") ? phone.slice(1) : phone;
-    if (!/^\d{10}$/.test(cleanedPhone)) {
-     
-                  return res.status(404).json({ message: "Phone number must be exactly 10 digits" });
-
-    }
-
-
-  user.serviceName = serviceName || user.serviceName;
-  user.address = address || user.address;
-  user.latitude = latitude || user.latitude;
-  user.longitude = longitude || user.longitude;
-  user.phone = phone || user.phone;
-  user.vehicleType = vehicleType || user.vehicleType;
-    user.email = email || user.email;
-
-
-  await user.save();
-  return res.status(200).json({
-    message: "Updated data successfully",
-    status: 200,
-    data: user,
-  });
+  return res.status(200).json({ message: "successfully updated", ambulance });
 };
+
+
 
 // Delete Ambulance
 const ambulanceDelete = async (req, res) => {
   const { id } = req.params;
 
-  if (req.cookies.refreshToken) {
-    const expirationDate = new Date(0);
-    res.cookie("refreshToken", refreshToken, {
-  httpOnly: true,
-
-  expires: expirationDate,
-    secure: process.env.NODE_ENV === "production", 
-  sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-});
-
-
-  }
   const hospital = await Ambulance.findById(id);
   if (!hospital) {
         return res.status(404).json({
@@ -172,6 +129,7 @@ const ambulanceDelete = async (req, res) => {
   await Ambulance.findByIdAndDelete({ _id: id });
   return res.status(200).send({message: "Your account deleted successfully", status: 200});
 };
+
 
 // Get all ambulances
 const getAmbulaces = async (req, res) => {

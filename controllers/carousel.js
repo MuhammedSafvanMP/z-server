@@ -9,25 +9,21 @@ const uploadAd = async (req, res) => {
     const { id } = req.params;
 
     const file = req.file; // uploaded image
-    const { title, startDate, endDate } = req.body;
-    console.log(req.body);
 
     // Find hospital
     const hospital = await Hospital.findById(id);
     if (!hospital) {
-      throw new createError.NotFound("Hospital not found!");
+     res.status(404).json({ message: "Hospital not found!"});
     }
 
     if (!file) {
-      throw new createError.BadRequest("No file uploaded!");
+         res.status(400).json({ message: "No file uploaded!"});
     }
 
     const normalizedPath = path.normalize(file.path);
-    console.log("Uploading file at path:", normalizedPath);
 
     const result = await cloudinary.uploader.upload(normalizedPath);
 
-    console.log("Cloudinary upload result:", result);
 
     // Add new ad to hospital.ads
     const newAd = {
@@ -53,10 +49,11 @@ const uploadAd = async (req, res) => {
 const deleteAd = async (req, res) => {
   const { hospitalId, adId } = req.params;
   const hospital = await Hospital.findById(hospitalId);
-  if (!hospital) throw new createError.NotFound("Hospital not found!");
+  if (!hospital) res.status(404).json({ message: "Hospital not found!"});
 
   const ad = hospital.ads.find((ad) => ad._id?.toString() === adId.toString());
-  if (!ad) throw new createError.NotFound("Ad not found!");
+    if (!ad) res.status(404).json({message :"Ad not found!"});
+
 
   // Delete image from Cloudinary
   if (ad.public_id) await cloudinary.uploader.destroy(ad.public_id);
@@ -76,10 +73,10 @@ const updateAd = async (req, res) => {
   const { title, startDate, endDate, isActive } = req.body; // text fields
 
   const hospital = await Hospital.findById(hospitalId);
-  if (!hospital) throw new createError.NotFound("Hospital not found!");
+  if (!hospital) res.status(404).json({ message: "Hospital not found!"});
 
   const ad = hospital.ads.id(adId);
-  if (!ad) throw new createError.NotFound("Ad not found!");
+  if (!ad) res.status(404).json({message :"Ad not found!"});
 
   if (title) ad.title = title;
   if (startDate) ad.startDate = startDate;
@@ -99,73 +96,22 @@ const updateAd = async (req, res) => {
   return res.status(200).json(ad);
 };
 
-// GET /api/ads/nearby?lat=...&lng=...
-// const GetAds = async (req, res) => {
-//   try {
-//     const { lat, lng } = req.query;
+const getAllAds = async (req, res) => {
 
+    const ads = await Hospital.find({ "ads.isActive": true });
+    if (!ads) res.status(404).json({message :"Ads not found!"});
+  return res.status(200).json(ads);
 
-//     console.log("Received lat and lng:", lat, lng);
-
-//     const nearbyAds = [];
-
-//     if (!lat || !lng) {
-//       const hospitals = await Hospital.find();
-//       hospitals.forEach((hospital) => {
-//         hospital.ads.forEach((ad) => {
-//           if (ad.isActive) nearbyAds.push(ad);
-//         });
-//       });
-//       return res
-//         .status(200)
-//         .json({ data: nearbyAds, message: "All active ads" });
-//     }
-
-//     const userLat = parseFloat(lat);
-//     const userLng = parseFloat(lng);
-//     const radiusInMeters = 50000; // 50km
-
-//     // Fetch hospitals that have ads
-//     const hospitals = await Hospital.find({
-//       ads: { $exists: true, $not: { $size: 0 } },
-//     });
-
-//     // Filter ads manually based on distance
-//     const R = 6371; // km
-//     hospitals.forEach((hospital) => {
-//       const dLat = ((hospital.latitude - userLat) * Math.PI) / 180;
-//       const dLon = ((hospital.longitude - userLng) * Math.PI) / 180;
-//       const a =
-//         Math.sin(dLat / 2) ** 2 +
-//         Math.cos((userLat * Math.PI) / 180) *
-//           Math.cos((hospital.latitude * Math.PI) / 180) *
-//           Math.sin(dLon / 2) ** 2;
-//       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-//       const distance = R * c * 1000; // meters
-
-//       if (distance <= radiusInMeters) {
-//         hospital.ads.forEach((ad) => {
-//           if (ad.isActive) nearbyAds.push(ad);
-//         });
-//       }
-//     });
-
-//     res.json(nearbyAds);
-//   } catch (err) {
-//     res.status(500).json({ message: "Server error", error: err });
-//   }
-// };
+}
 
 
  const GetAds = async (req, res) => {
   try {
-    console.log("Incoming query:", req.query);
 
     // Get coordinates from query
     const { lat, lng } = req.query;
 
     if (!lat || !lng) {
-      console.log("No coordinates received — returning all active ads.");
 
       const hospitals = await Hospital.find({ "ads.isActive": true });
       const allAds = [];
@@ -190,7 +136,6 @@ const updateAd = async (req, res) => {
       return res.status(400).json({ message: "Invalid latitude or longitude" });
     }
 
-    console.log("Received lat/lng:", userLat, userLng);
 
     // Search radius (50 km)
     const radiusInMeters = 50_000;
@@ -202,7 +147,6 @@ const updateAd = async (req, res) => {
       ads: { $exists: true, $not: { $size: 0 } },
     });
 
-    console.log("Hospitals found:", hospitals.length);
 
     hospitals.forEach((hospital) => {
       if (
@@ -225,11 +169,6 @@ const updateAd = async (req, res) => {
 
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       const distance = R * c * 1000; // meters
-
-      // Debug log
-      console.log(
-        `Hospital ${hospital.name}: ${distance.toFixed(2)} m from user`
-      );
 
       if (distance <= radiusInMeters) {
         hospital.ads.forEach((ad) => {
@@ -265,5 +204,6 @@ module.exports = {
   deleteAd,
   updateAd,
   GetAds,
-  GetAdsHospital
+  GetAdsHospital,
+  getAllAds
 };

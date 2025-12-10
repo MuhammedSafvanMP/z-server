@@ -6,6 +6,7 @@ const {
   updateAd,
   GetAds,
   GetAdsHospital,
+  getAllAds
 } = require("../controllers/carousel");
 const { upload } = require("../middlewares/multer");
 
@@ -24,14 +25,17 @@ CarouselRouter.post("/hospitals/ads/:id", upload.single("image"), uploadAd);
 
 // Update an existing ad
 // PUT /api/hospitals/ads/:hospitalId/:adId
-CarouselRouter.put("/hospitals/ads/:hospitalId/:adId", upload.single("image"), updateAd);
+CarouselRouter.put("/hospitals/:hospitalId/ads/:adId", upload.single("image"), updateAd);
 
 // Delete an ad
 // DELETE /api/hospitals/ads/:hospitalId/:adId
-CarouselRouter.delete("/hospitals/ads/:hospitalId/:adId", deleteAd);
+CarouselRouter.delete("/hospitals/:hospitalId/ads/:adId", deleteAd);
 
 // Get nearby ads
 // GET /api/ads/nearby?lat=...&lng=...
 CarouselRouter.get("/ads/nearby", GetAds);
+
+CarouselRouter.get("/ads", getAllAds);
+
 
 module.exports = CarouselRouter;
