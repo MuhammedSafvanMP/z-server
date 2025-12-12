@@ -136,6 +136,7 @@ app.use(
       "https://www.hostahospital.com",
       "https://hostahospital.com",
       "https://ambulaces-hosta.vercel.app",
+      "https://hosta-admin-ftu3.vercel.app"
     ],
     credentials: true,
   })
